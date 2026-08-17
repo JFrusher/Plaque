@@ -1,0 +1,271 @@
+import { readFileSync } from "node:fs";
+import zlib from "node:zlib";
+import { describe, expect, it } from "vitest";
+import { BUNDLED_FONTS } from "../../assets/fonts";
+import { makeIconLookup } from "../../assets/icons";
+import { parseCsv } from "../../core/csv/parse";
+import { paginate } from "../../core/imposition/paginate";
+import { fitText } from "../../core/text/fit";
+import { loadFont, type LoadedFont } from "../../core/text/measure";
+import { defaultCard, defaultSheet, defaultTemplate } from "../../core/template/defaults";
+import type { FitTextFn } from "../../core/template/bindings";
+import type { CardSpec, SheetSpec, Template, TextElement } from "../../core/types";
+import { mmToPt } from "../../core/units";
+import { hexToRgb, renderPdf } from "./renderPdf";
+
+// ---------------------------------------------------------------------------
+// Harness
+// ---------------------------------------------------------------------------
+
+const fonts = new Map<string, LoadedFont>(
+  BUNDLED_FONTS.map((f) => [
+    f.id,
+    loadFont(f.id, f.family, new Uint8Array(readFileSync(`src/assets/fonts/${f.file}`))),
+  ]),
+);
+
+const iconPath = makeIconLookup();
+
+const fitWith = (): FitTextFn => (el, text) => {
+  const font = fonts.get(el.fontId);
+  if (!font) return { lines: [text], fontSizePt: el.fontSizePt, overflowed: false };
+  return fitText(font, {
+    text,
+    boxWMm: el.w,
+    boxHMm: el.h,
+    fontSizePt: el.fontSizePt,
+    lineHeight: el.lineHeight,
+    letterSpacingMm: el.letterSpacingMm,
+    fit: el.fit,
+  });
+};
+
+function build(csvPath: string, card: CardSpec, sheet: SheetSpec, template?: Template) {
+  const { headers, rows } = parseCsv(readFileSync(csvPath, "utf8"));
+  return paginate(template ?? defaultTemplate(headers, card), rows, card, sheet, {
+    fitText: fitWith(),
+    iconPath,
+  });
+}
+
+/** Inflates every FlateDecode stream so the drawing operators can be inspected. */
+function contentStreams(bytes: Uint8Array): string[] {
+  const buf = Buffer.from(bytes);
+  const raw = buf.toString("latin1");
+  const out: string[] = [];
+  const re = /stream\r?\n/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw))) {
+    const start = m.index + m[0].length;
+    const end = raw.indexOf("endstream", start);
+    if (end < 0) continue;
+    try {
+      out.push(zlib.inflateSync(buf.subarray(start, end)).toString("latin1"));
+    } catch {
+      out.push(buf.subarray(start, end).toString("latin1"));
+    }
+  }
+  return out;
+}
+
+async function openPdf(bytes: Uint8Array) {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const task = pdfjs.getDocument({ data: new Uint8Array(bytes) });
+  return { task, doc: await task.promise };
+}
+
+async function extractText(bytes: Uint8Array, pageNumber: number): Promise<string> {
+  const { task, doc } = await openPdf(bytes);
+  const content = await (await doc.getPage(pageNumber)).getTextContent();
+  const text = content.items.map((i) => ("str" in i ? i.str : "")).join(" ");
+  await task.destroy();
+  return text;
+}
+
+// ---------------------------------------------------------------------------
+// The smoke test
+// ---------------------------------------------------------------------------
+
+describe("renderPdf — 150 guests, 8 up on A4", () => {
+  const card = defaultCard();
+  const sheet = defaultSheet();
+  const { sheets } = build("fixtures/guests-150.csv", card, sheet);
+
+  it("imposes 150 guests onto 19 pages", async () => {
+    const result = await renderPdf({ sheets, fonts });
+    expect(result.pageCount).toBe(19);
+  });
+
+  it("writes A4 pages at 595.28 x 841.89pt", async () => {
+    const { bytes } = await renderPdf({ sheets, fonts });
+    const { task, doc } = await openPdf(bytes);
+    expect(doc.numPages).toBe(19);
+    const view = (await doc.getPage(1)).view;
+    expect(view[2]).toBeCloseTo(595.28, 1);
+    expect(view[3]).toBeCloseTo(841.89, 1);
+    await task.destroy();
+  });
+
+  it("puts the first eight guests on page one as real, extractable text", async () => {
+    const { bytes } = await renderPdf({ sheets, fonts });
+    const text = await extractText(bytes, 1);
+    expect(sheets[0]!.cards.map((c) => c.guestIndex)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+
+    const rows = parseCsv(readFileSync("fixtures/guests-150.csv", "utf8")).rows;
+    for (const row of rows.slice(0, 8)) {
+      expect(text).toContain(`${row["First Name"]} ${row["Last Name"]}`);
+    }
+  });
+
+  it("carries the ninth guest onto page two, not page one", async () => {
+    const { bytes } = await renderPdf({ sheets, fonts });
+    expect(await extractText(bytes, 1)).not.toContain("Rafferty");
+    expect(await extractText(bytes, 2)).toContain("Rafferty");
+  });
+
+  it("embeds each face once, not once per card", async () => {
+    const { bytes } = await renderPdf({ sheets, fonts });
+    // Font descriptors live inside compressed object streams, so the raw bytes
+    // are not searchable — they have to be inflated first.
+    const all = [Buffer.from(bytes).toString("latin1"), ...contentStreams(bytes)].join("\n");
+    const descriptors = all.match(/\/FontFile2/g) ?? [];
+    expect(descriptors.length).toBeGreaterThan(0);
+    expect(descriptors.length).toBeLessThanOrEqual(fonts.size);
+  });
+
+  it("subsets rather than embedding whole files", async () => {
+    const result = await renderPdf({ sheets, fonts });
+    expect(result.notSubset).toEqual([]);
+    // The six bundled faces total ~1.4MB. Subsetting must keep the whole
+    // 19-page document well under that.
+    expect(result.bytes.byteLength).toBeLessThan(600_000);
+  });
+
+  it("exports in under three seconds", async () => {
+    const started = performance.now();
+    const built = build("fixtures/guests-150.csv", card, sheet);
+    await renderPdf({ sheets: built.sheets, fonts });
+    expect(performance.now() - started).toBeLessThan(3000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Drawing details
+// ---------------------------------------------------------------------------
+
+describe("renderPdf — drawing", () => {
+  it("flips y exactly once: a card at the top of the page draws near the top", async () => {
+    const card = defaultCard();
+    const sheet = defaultSheet();
+    const { sheets } = build("fixtures/guests-5.csv", card, sheet);
+    const { bytes } = await renderPdf({ sheets, fonts });
+    const ops = contentStreams(bytes).join("\n");
+    // First card spans 10..65mm from the page top, i.e. 232..287mm from the
+    // bottom. Its cut line must appear at that height in points, not at 28pt.
+    const topCutY = mmToPt(297 - 10);
+    expect(ops).toMatch(new RegExp(`${topCutY.toFixed(2)}`));
+  });
+
+  it("draws fold guides dashed and crop marks solid", async () => {
+    const card: CardSpec = {
+      ...defaultCard(),
+      heightMm: 110,
+      fold: "horizontal",
+      foldPositionMm: 55,
+      invertBackPanel: true,
+    };
+    const { sheets } = build("fixtures/guests-5.csv", card, defaultSheet());
+    const { bytes } = await renderPdf({ sheets, fonts });
+    const ops = contentStreams(bytes).join("\n");
+    expect(ops).toContain("[3 3] 0 d");
+    expect(ops).toContain("[] 0 d");
+  });
+
+  it("rotates back-panel text by 180 degrees on a tent card", async () => {
+    const card: CardSpec = {
+      ...defaultCard(),
+      heightMm: 110,
+      fold: "horizontal",
+      foldPositionMm: 55,
+      invertBackPanel: true,
+    };
+    const base = defaultTemplate(["First Name", "Last Name"], card);
+    const nameEl = base.elements[0]!;
+    // Two copies of the name: one on each panel.
+    const template: Template = {
+      backgroundHex: null,
+      elements: [
+        { ...nameEl, id: "front", y: 70 },
+        { ...nameEl, id: "back", y: 20 },
+      ],
+    };
+    const { sheets } = build("fixtures/guests-5.csv", card, defaultSheet(), template);
+    const els = sheets[0]!.cards[0]!.scene.elements;
+    expect(els.find((e) => e.id === "front")?.rotationDeg).toBe(0);
+    expect(els.find((e) => e.id === "back")?.rotationDeg).toBe(180);
+
+    const { bytes } = await renderPdf({ sheets, fonts });
+    const ops = contentStreams(bytes).join("\n");
+    // A 180 degree text matrix. pdf-lib builds it with Math.cos/Math.sin, so the
+    // off-diagonal terms are 1.2e-16 rather than a clean zero.
+    expect(ops).toMatch(/-1 -?[\d.e-]+ -?[\d.e-]+ -1 [\d.]+ [\d.]+ Tm/);
+  });
+
+  it("draws icons as path operators, never as an image", async () => {
+    const { sheets } = build("fixtures/guests-5.csv", defaultCard(), defaultSheet());
+    const hasIcon = sheets[0]!.cards.some((c) =>
+      c.scene.elements.some((e) => e.kind === "icon" && e.pathD),
+    );
+    expect(hasIcon).toBe(true);
+    const { bytes } = await renderPdf({ sheets, fonts });
+    const streams = contentStreams(bytes);
+    expect([Buffer.from(bytes).toString("latin1"), ...streams].join("\n")).not.toContain(
+      "/Subtype /Image",
+    );
+    // drawSvgPath folds its y-flip into the scale matrix: `s 0 0 -s 0 0 cm`.
+    // That negative fourth term is what makes SVG's y-down path data land the
+    // right way up in a y-up PDF, and it is why drawIcon anchors at the box's
+    // top-left rather than its bottom-left.
+    expect(streams.join("\n")).toMatch(/(\d*\.?\d+) 0 0 -\1 0 0 cm/);
+    // Filled paths, not stroked images.
+    expect(streams.join("\n")).toMatch(/\bf\b/);
+  });
+
+  it("anchors an icon inside its element box", async () => {
+    // The bundled path starts at its own (0,0), so the anchor is the box corner.
+    const card = defaultCard();
+    const { sheets } = build("fixtures/guests-5.csv", card, defaultSheet());
+    const icon = sheets[0]!.cards[0]!.scene.elements.find((e) => e.kind === "icon");
+    expect(icon).toBeDefined();
+    expect(icon!.x).toBeGreaterThanOrEqual(10);
+    expect(icon!.y).toBeGreaterThanOrEqual(10);
+  });
+
+  it("produces an empty document rather than throwing when there is nothing to print", async () => {
+    const result = await renderPdf({ sheets: [], fonts });
+    expect(result.pageCount).toBe(0);
+    expect(result.bytes.byteLength).toBeGreaterThan(0);
+  });
+
+  it("skips a text element whose font was never supplied instead of crashing", async () => {
+    const card = defaultCard();
+    const base = defaultTemplate(["First Name", "Last Name"], card);
+    const template: Template = {
+      backgroundHex: null,
+      elements: [{ ...(base.elements[0] as TextElement), fontId: "nope" }],
+    };
+    const { sheets } = build("fixtures/guests-5.csv", card, defaultSheet(), template);
+    await expect(renderPdf({ sheets, fonts })).resolves.toBeDefined();
+  });
+});
+
+describe("hexToRgb", () => {
+  it("reads six-digit and three-digit hex", () => {
+    expect(hexToRgb("#ff0000")).toMatchObject({ red: 1, green: 0, blue: 0 });
+    expect(hexToRgb("#0f0")).toMatchObject({ red: 0, green: 1, blue: 0 });
+  });
+
+  it("falls back to black on nonsense rather than throwing mid-render", () => {
+    expect(hexToRgb("not a colour")).toMatchObject({ red: 0, green: 0, blue: 0 });
+  });
+});
