@@ -1,4 +1,12 @@
-import type { CardElement, FitMode, HAlign, TextElement, VAlign } from "../../core/types";
+import type {
+  CardElement,
+  FitMode,
+  HAlign,
+  ImageFit,
+  ShrinkAnchor,
+  TextElement,
+  VAlign,
+} from "../../core/types";
 import { usePlaque } from "../../state/store";
 import {
   CheckboxField,
@@ -78,7 +86,32 @@ export function InspectorPanel() {
             onChange={(sourceField) => patch({ sourceField })}
           />
           <ColorField label="Colour" value={element.colorHex} onChange={(c) => patch({ colorHex: c ?? "#000000" })} />
-          <Hint>Which icon appears for each value is set under Dietary icons.</Hint>
+          <Hint>Which icon appears for each value is set under Icon rules.</Hint>
+        </>
+      )}
+
+      {element.kind === "image" && (
+        <>
+          <SelectField<ImageFit>
+            label="Fit"
+            value={element.fit}
+            options={[
+              { value: "contain", label: "Fit inside, keep shape" },
+              { value: "stretch", label: "Fill the box" },
+            ]}
+            onChange={(fit) => patch({ fit })}
+          />
+          <NumberField
+            label="Opacity"
+            value={element.opacity}
+            step={0.05}
+            min={0}
+            max={1}
+            onChange={(opacity) => patch({ opacity: Math.max(0, Math.min(1, opacity)) })}
+          />
+          <Hint>
+            {element.imageId ? "Change the artwork under Images." : "Upload artwork under Images."}
+          </Hint>
         </>
       )}
 
@@ -201,6 +234,18 @@ function TextProperties({
         onChange={(mode) => patch({ fit: { ...element.fit, mode } })}
       />
 
+      <SelectField<ShrinkAnchor>
+        label="Shrink around"
+        value={element.fit.anchor}
+        options={[
+          { value: "align", label: "Wherever it is aligned" },
+          { value: "left", label: "Its left edge" },
+          { value: "center", label: "Its centre" },
+          { value: "right", label: "Its right edge" },
+        ]}
+        onChange={(anchor) => patch({ fit: { ...element.fit, anchor } })}
+      />
+
       <Row>
         <NumberField
           label="Never below"
@@ -220,8 +265,9 @@ function TextProperties({
       </Row>
 
       <Hint>
-        Text shrinks around wherever it is aligned, so a centred name stays centred and a
-        right-aligned one keeps its right edge.
+        {element.fit.anchor === "align"
+          ? "Text shrinks around wherever it is aligned, so a centred name stays centred and a right-aligned one keeps its right edge."
+          : "Align decides how the lines sit relative to each other; this decides where the whole block sits as it shrinks."}
       </Hint>
     </>
   );

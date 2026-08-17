@@ -6,14 +6,17 @@ device.
 
 ![Plaque, with a tent card design and the imposed sheet beside it](docs/screenshot.png)
 
-- Design one card in a freeform editor and bind text to any CSV column.
+- Design one card in a freeform editor. Mix fixed text with `{{Column}}` tokens
+  from your CSV, in any element.
+- Drop in a monogram, crest or venue mark as a PNG or JPEG.
 - Any card size, any fold position, custom bleed and margins — with layout
   suggestions that work out how to waste the least card stock.
 - Tent cards print the back panel rotated 180°, so it reads from across the
   table.
 - Names that do not fit shrink, wrap, or tell you which guests are a problem —
-  they never quietly become illegible.
-- Dietary icons mapped from any column, with your own SVGs if you want them.
+  they never quietly become illegible. Choose the point they shrink around.
+- Icons mapped from any column — dietary, entrée, anything — with your own SVGs
+  if you want them.
 - Vector PDF with embedded fonts: text stays selectable and sharp at any size.
 
 ## Development
@@ -60,8 +63,9 @@ Full design spec:
 
 ## Not in this version
 
-Per-guest overrides · multi-select in the editor · `.woff2` uploads ·
-double-sided printing · menus and table numbers · touch editing ·
+Per-guest overrides · per-guest images from a column · multi-select in the
+editor · `.woff2` uploads · double-sided printing · a print button (the PDF
+downloads, then you print it) · menus and table numbers · touch editing ·
 project export/import files.
 
 ## Licence

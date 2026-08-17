@@ -1,6 +1,7 @@
 import { makeIconLookup } from "../../assets/icons";
 import { fitText } from "../text/fit";
 import type { LoadedFont } from "../text/measure";
+import type { ResolvedImageSource } from "../types";
 import type { ResolveOptions } from "./bindings";
 
 /**
@@ -13,10 +14,12 @@ import type { ResolveOptions } from "./bindings";
 export function makeResolveOptions(
   fonts: Map<string, LoadedFont>,
   uploadedIcons: Record<string, string> = {},
+  images: Map<string, ResolvedImageSource> = new Map(),
 ): ResolveOptions {
   const iconPath = makeIconLookup(uploadedIcons);
   return {
     iconPath,
+    image: (id) => images.get(id) ?? null,
     fitText: (el, text) => {
       const font = fonts.get(el.fontId);
       if (!font) {

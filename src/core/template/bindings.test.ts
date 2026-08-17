@@ -28,7 +28,7 @@ const text = (over: Partial<TextElement> = {}): TextElement => ({
   lineHeight: 1.2,
   colorHex: "#000000",
   letterSpacingMm: 0,
-  fit: { mode: "shrink", minFontSizePt: 8, maxLines: 1 },
+  fit: { mode: "shrink", minFontSizePt: 8, maxLines: 1, anchor: "align" },
   ...over,
 });
 

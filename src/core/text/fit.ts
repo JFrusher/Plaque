@@ -80,4 +80,5 @@ export const DEFAULT_FIT: FitConfig = {
   mode: "shrink",
   minFontSizePt: 8,
   maxLines: 2,
+  anchor: "align",
 };

@@ -1,6 +1,7 @@
-import { PDFDocument, degrees, rgb, type PDFPage, type RGB } from "pdf-lib";
+import { PDFDocument, degrees, rgb, type PDFImage, type PDFPage, type RGB } from "pdf-lib";
 import { HAIRLINE_PT } from "../../core/geometry/cropMarks";
 import { centreOf, rotatePoint } from "../../core/geometry/transform";
+import { fitIcon } from "../../core/template/iconFit";
 import { layoutLines } from "../../core/text/layout";
 import type { LoadedFont } from "../../core/text/measure";
 import type { Hex, Mm, Point, ResolvedElement, Segment, Sheet } from "../../core/types";
@@ -39,6 +40,7 @@ export async function renderPdf(opts: RenderPdfOptions): Promise<RenderPdfResult
   doc.setCreator("Plaque");
 
   const { fonts: embedded, notSubset } = await embedFonts(doc, opts.fonts.values());
+  const images = await embedImages(doc, opts.sheets);
 
   for (const sheet of opts.sheets) {
     const page = doc.addPage([mmToPt(sheet.pageWidthMm), mmToPt(sheet.pageHeightMm)]);
@@ -58,7 +60,7 @@ export async function renderPdf(opts: RenderPdfOptions): Promise<RenderPdfResult
         );
       }
       for (const el of card.scene.elements) {
-        drawElement(page, el, opts.fonts, embedded, toPdf);
+        drawElement(page, el, opts.fonts, embedded, images, toPdf);
       }
     }
 
@@ -82,6 +84,7 @@ function drawElement(
   el: ResolvedElement,
   metrics: Map<string, LoadedFont>,
   embedded: Map<string, import("pdf-lib").PDFFont>,
+  images: Map<string, PDFImage>,
   toPdf: (p: Point) => { x: number; y: number },
 ): void {
   const box = { x: el.x, y: el.y, w: el.w, h: el.h };
@@ -98,6 +101,7 @@ function drawElement(
         lineHeight: el.lineHeight,
         align: el.align,
         vAlign: el.vAlign,
+        anchor: el.anchor,
         letterSpacingMm: el.letterSpacingMm,
         w: el.w,
         h: el.h,
@@ -130,6 +134,28 @@ function drawElement(
         drawIconPath(page, el.cutD, box, el.view, el.rotationDeg, hexToRgb(el.cutHex), toPdf);
       }
       return;
+
+    case "image": {
+      if (!el.image) return;
+      const embeddedImage = images.get(el.image.id);
+      if (!embeddedImage) return;
+      const placed =
+        el.fit === "stretch"
+          ? { x: box.x, y: box.y, drawnW: box.w, drawnH: box.h }
+          : fitIcon(box, { x: 0, y: 0, w: el.image.naturalW, h: el.image.naturalH });
+      // pdf-lib anchors an image at its bottom-left, as it does a rectangle.
+      const corner = { x: placed.x, y: placed.y + placed.drawnH };
+      const anchor = toPdf(rotatePoint(corner, centreOf(box), el.rotationDeg));
+      page.drawImage(embeddedImage, {
+        x: anchor.x,
+        y: anchor.y,
+        width: mmToPt(placed.drawnW),
+        height: mmToPt(placed.drawnH),
+        rotate: degrees(-el.rotationDeg),
+        opacity: el.opacity,
+      });
+      return;
+    }
 
     case "rect":
       drawRect(
@@ -173,6 +199,33 @@ function drawElement(
       return;
     }
   }
+}
+
+/**
+ * Embeds each distinct image once per document, however many cards use it.
+ * A crest repeated on 150 cards must not become 150 copies of the same bytes.
+ */
+async function embedImages(doc: PDFDocument, sheets: Sheet[]): Promise<Map<string, PDFImage>> {
+  const wanted = new Map<string, { data: Uint8Array; mime: string }>();
+  for (const sheet of sheets) {
+    for (const card of sheet.cards) {
+      for (const el of card.scene.elements) {
+        if (el.kind === "image" && el.image && !wanted.has(el.image.id)) {
+          wanted.set(el.image.id, { data: el.image.data, mime: el.image.mime });
+        }
+      }
+    }
+  }
+
+  const out = new Map<string, PDFImage>();
+  for (const [id, { data, mime }] of wanted) {
+    try {
+      out.set(id, mime === "image/png" ? await doc.embedPng(data) : await doc.embedJpg(data));
+    } catch {
+      // A corrupt image should cost its own element, not the whole export.
+    }
+  }
+  return out;
 }
 
 function drawRect(

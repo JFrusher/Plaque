@@ -7,10 +7,25 @@ import { usePlaque } from "../../state/store";
 import { Hint, Panel } from "../controls";
 import styles from "./IconRulesPanel.module.css";
 
-/** FR-STA-05. One row per value actually present in the guest list. */
+/**
+ * FR-STA-05. Icon rules for ANY column, not only dietary — one row per value
+ * actually present in the guest list.
+ *
+ * A card can carry several icon elements, each reading a different column, so
+ * the panel lists them all and says which one it is editing rather than
+ * silently following the selection.
+ */
 export function IconRulesPanel() {
-  const { template, rows, selectedId, uploadedIcons, updateElement, addUploadedIcon, removeUploadedIcon } =
-    usePlaque();
+  const {
+    template,
+    rows,
+    selectedId,
+    uploadedIcons,
+    select,
+    updateElement,
+    addUploadedIcon,
+    removeUploadedIcon,
+  } = usePlaque();
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,14 +54,33 @@ export function IconRulesPanel() {
   }
 
   return (
-    <Panel title="Dietary icons" open={false}>
+    <Panel title="Icon rules" open={false}>
       {!element ? (
-        <Hint>Add an icon element to the card to map dietary values.</Hint>
+        <Hint>
+          Add an icon element to the card, then map the values of any column — dietary, entrée,
+          anything.
+        </Hint>
       ) : (
         <>
+          {iconElements.length > 1 && (
+            <div className={styles.switcher}>
+              {iconElements.map((el) => (
+                <button
+                  key={el.id}
+                  type="button"
+                  className={el.id === element.id ? styles.tabActive : styles.tab}
+                  onClick={() => select(el.id)}
+                >
+                  {el.sourceField || "no column"}
+                </button>
+              ))}
+            </div>
+          )}
+
           <Hint>
-            Reading <strong>{element.sourceField || "no column yet"}</strong>. Values with no icon
-            print nothing.
+            {iconElements.length > 1 ? "Editing the icon reading " : "Reading "}
+            <strong>{element.sourceField || "no column yet"}</strong>. Values with no icon print
+            nothing. Change the column in Selected element.
           </Hint>
 
           <ul className={styles.rules}>
@@ -83,7 +117,7 @@ export function IconRulesPanel() {
             })}
           </ul>
 
-          {rows.length === 0 && <Hint>Upload a guest list to see its dietary values here.</Hint>}
+          {rows.length === 0 && <Hint>Upload a guest list to see that column's values here.</Hint>}
         </>
       )}
 

@@ -1,4 +1,4 @@
-import type { HAlign, Mm, Point, Pt, VAlign } from "../types";
+import type { HAlign, Mm, Point, Pt, ShrinkAnchor, VAlign } from "../types";
 import { ptToMm } from "../units";
 import { blockHeightMm, lineHeightMm, measureWidth, type LoadedFont } from "./measure";
 
@@ -17,8 +17,11 @@ export interface TextBlock {
   lines: string[];
   fontSizePt: Pt;
   lineHeight: number;
+  /** How lines sit relative to each other. */
   align: HAlign;
   vAlign: VAlign;
+  /** Where the block sits in the box. `"align"` follows `align`. */
+  anchor: ShrinkAnchor;
   letterSpacingMm: Mm;
   w: Mm;
   h: Mm;
@@ -48,20 +51,31 @@ export function layoutLines(font: LoadedFont, block: TextBlock): LaidOutLine[] {
   // uses, and the baseline sits an ascent below its top.
   const ascentMm = ptToMm(block.fontSizePt) * ascentRatio(font);
 
-  return block.lines.map((text, i) => {
-    const widthMm = measureWidth(font, text, block.fontSizePt, block.letterSpacingMm);
-    const x =
-      block.align === "left"
-        ? 0
-        : block.align === "center"
-          ? (block.w - widthMm) / 2
-          : block.w - widthMm;
-    return {
-      text,
-      widthMm,
-      baseline: { x, y: top + ascentMm + i * step },
-    };
-  });
+  const widths = block.lines.map((text) =>
+    measureWidth(font, text, block.fontSizePt, block.letterSpacingMm),
+  );
+  const blockW = Math.max(0, ...widths);
+
+  // Two placements, deliberately separate: the block within the box, then each
+  // line within the block. When anchor is "align" they collapse to the same
+  // thing, which is why one control covers the common case.
+  const blockX = place(block.anchor === "align" ? block.align : block.anchor, block.w, blockW);
+
+  return block.lines.map((text, i) => ({
+    text,
+    widthMm: widths[i]!,
+    baseline: {
+      x: blockX + place(block.align, blockW, widths[i]!),
+      y: top + ascentMm + i * step,
+    },
+  }));
+}
+
+/** Offset of an inner width inside an outer one, for a given alignment. */
+function place(align: HAlign, outer: Mm, inner: Mm): Mm {
+  if (align === "left") return 0;
+  if (align === "center") return (outer - inner) / 2;
+  return outer - inner;
 }
 
 /**

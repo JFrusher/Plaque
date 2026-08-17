@@ -615,5 +615,36 @@ implementation rather than two that drift.
   does the header pass itself.
 - Papaparse auto-detects semicolons and tabs, so those exports need no warning.
 - 150 guests, 19 A4 pages: 80KB, ~480ms. The budget was 3.0s.
+- pdf-lib emits a second image XObject as a soft mask for an image with alpha,
+  so counting XObjects to prove deduplication is brittle. The test asserts the
+  count does not grow with the number of cards instead.
+
+## Added after the first release
+
+Requested once the app was usable, and built on the same rules.
+
+**Image elements.** A fifth element kind: upload a PNG or JPEG, drag and resize
+it like anything else, with `contain`/`stretch` and an opacity for watermarks.
+Bytes live in IndexedDB beside the fonts; `embedImages` in the PDF renderer
+embeds each distinct image once per document however many cards use it. Only
+PNG and JPEG are accepted, because those are what a PDF embeds directly and
+silently re-encoding someone's artwork is worse than saying so. The same image
+appears on every card — per-guest images from a column were considered and
+deferred.
+
+**A shrink anchor separate from alignment.** Reinstated after being cut, and
+built so the two cannot contradict: `align` decides how lines sit relative to
+each other, `anchor` decides where the whole block sits in the box, and the
+default `"align"` collapses them into the single control the original design
+had. Centre-aligned lines can now shrink toward the left edge.
+
+**Icon rules are not only dietary.** The panel was already backed by
+any-column matching; it was named and worded as though it were not. Renamed to
+"Icon rules", with a switcher across every icon element on the card so several
+columns can drive several icons without the panel silently following the
+selection.
+
+Deliberately not built: a print button. The PDF downloads and the system viewer
+prints it, which is one step and no new failure mode.
 </build_notes>
 </implementation_steps>

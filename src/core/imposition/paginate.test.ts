@@ -47,7 +47,7 @@ const nameEl: TextElement = {
   lineHeight: 1.2,
   colorHex: "#111111",
   letterSpacingMm: 0,
-  fit: { mode: "shrink", minFontSizePt: 8, maxLines: 1 },
+  fit: { mode: "shrink", minFontSizePt: 8, maxLines: 1, anchor: "align" },
 };
 
 const template: Template = { elements: [nameEl], backgroundHex: null };

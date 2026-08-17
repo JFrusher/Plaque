@@ -4,6 +4,7 @@ import type {
   ElementId,
   Pt,
   ResolvedElement,
+  ResolvedImageSource,
   Template,
   TextElement,
 } from "../types";
@@ -22,13 +23,21 @@ export interface FitResult {
 /** Injected so bindings stays pure and testable without loading a font. */
 export type FitTextFn = (element: TextElement, text: string) => FitResult;
 export type IconPathFn = (iconId: string) => IconArt | null;
+export type ImageFn = (imageId: string) => ResolvedImageSource | null;
 
 export interface ResolveOptions {
   fitText: FitTextFn;
   iconPath: IconPathFn;
+  /** Optional: without it, image elements resolve to nothing and warn. */
+  image?: ImageFn;
 }
 
-export type WarningKind = "overflow" | "missing-field" | "missing-icon" | "empty-text";
+export type WarningKind =
+  | "overflow"
+  | "missing-field"
+  | "missing-icon"
+  | "missing-image"
+  | "empty-text";
 
 export interface CardWarning {
   elementId: ElementId;
@@ -99,6 +108,7 @@ export function resolveCard(
           fontSizePt: fit.fontSizePt,
           align: el.align,
           vAlign: el.vAlign,
+          anchor: el.fit.anchor,
           lineHeight: el.lineHeight,
           colorHex: el.colorHex,
           letterSpacingMm: el.letterSpacingMm,
@@ -149,6 +159,19 @@ export function resolveCard(
           dashed: el.dashed,
         });
         break;
+
+      case "image": {
+        const source = el.imageId ? (opts.image?.(el.imageId) ?? null) : null;
+        if (el.imageId && !source) {
+          warnings.push({
+            elementId: el.id,
+            kind: "missing-image",
+            detail: "That image is no longer available on this device.",
+          });
+        }
+        elements.push({ ...base, kind: "image", image: source, fit: el.fit, opacity: el.opacity });
+        break;
+      }
     }
   }
 

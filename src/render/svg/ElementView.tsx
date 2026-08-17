@@ -36,6 +36,7 @@ function renderBody(el: ResolvedElement, fonts: Map<string, LoadedFont>) {
         lineHeight: el.lineHeight,
         align: el.align,
         vAlign: el.vAlign,
+        anchor: el.anchor,
         letterSpacingMm: el.letterSpacingMm,
         w: el.w,
         h: el.h,
@@ -64,6 +65,28 @@ function renderBody(el: ResolvedElement, fonts: Map<string, LoadedFont>) {
           <path d={el.pathD} fill={el.colorHex} />
           {el.cutD && <path d={el.cutD} fill={el.cutHex} />}
         </g>
+      );
+    }
+
+    case "image": {
+      if (!el.image) return null;
+      // `contain` uses the same fitter the icons use, so an image and an icon
+      // in identical boxes land in identical places.
+      const box = { x: el.x, y: el.y, w: el.w, h: el.h };
+      const placed =
+        el.fit === "stretch"
+          ? { x: box.x, y: box.y, drawnW: box.w, drawnH: box.h }
+          : fitIcon(box, { x: 0, y: 0, w: el.image.naturalW, h: el.image.naturalH });
+      return (
+        <image
+          href={el.image.url}
+          x={placed.x}
+          y={placed.y}
+          width={placed.drawnW}
+          height={placed.drawnH}
+          opacity={el.opacity}
+          preserveAspectRatio="none"
+        />
       );
     }
 

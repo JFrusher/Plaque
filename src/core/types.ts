@@ -84,17 +84,24 @@ export type VAlign = "top" | "middle" | "bottom";
 export type FitMode = "none" | "shrink" | "wrap" | "shrink-then-wrap";
 
 /**
- * `align` and `vAlign` are also the point the text shrinks around: text is laid
- * out inside a fixed box, so a right-aligned block keeps its right edge as it
- * shrinks, a centred one keeps its centre. There is deliberately no second
- * anchor setting that could contradict them.
+ * `"align"` means the text block sits wherever `align` puts it, so a centred
+ * block keeps its centre as it shrinks and a right-aligned one keeps its right
+ * edge. That covers most cases with one control.
+ *
+ * Any other value separates the two: `align` still decides how the lines sit
+ * relative to EACH OTHER, while the anchor decides where the whole block sits
+ * in the box. Centre-aligned lines anchored left shrink toward the left edge.
  */
+export type ShrinkAnchor = "align" | HAlign;
+
 export interface FitConfig {
   mode: FitMode;
   /** Floor for shrinking. Below this the text renders at the floor and reports overflow. */
   minFontSizePt: Pt;
   /** Ignored unless the mode wraps. */
   maxLines: number;
+  /** The point the block shrinks around. */
+  anchor: ShrinkAnchor;
 }
 
 export interface ElementBase {
@@ -153,7 +160,24 @@ export interface LineElement extends ElementBase {
   dashed: boolean;
 }
 
-export type CardElement = TextElement | IconElement | RectElement | LineElement;
+/** `contain` preserves the image's aspect inside the box; `stretch` fills it. */
+export type ImageFit = "contain" | "stretch";
+
+export interface ImageElement extends ElementBase {
+  kind: "image";
+  /** Key into the image store. `null` until one is chosen. */
+  imageId: string | null;
+  fit: ImageFit;
+  /** 0..1. Useful for a watermark sitting behind a name. */
+  opacity: number;
+}
+
+export type CardElement =
+  | TextElement
+  | IconElement
+  | RectElement
+  | LineElement
+  | ImageElement;
 
 export interface Template {
   elements: CardElement[];
@@ -188,6 +212,8 @@ export interface ResolvedText extends ResolvedBase {
   fontSizePt: Pt;
   align: HAlign;
   vAlign: VAlign;
+  /** Where the block sits in the box; `"align"` follows `align`. */
+  anchor: ShrinkAnchor;
   lineHeight: number;
   colorHex: Hex;
   letterSpacingMm: Mm;
@@ -223,7 +249,35 @@ export interface ResolvedLine extends ResolvedBase {
   dashed: boolean;
 }
 
-export type ResolvedElement = ResolvedText | ResolvedIcon | ResolvedRect | ResolvedLine;
+export interface ResolvedImage extends ResolvedBase {
+  kind: "image";
+  /**
+   * Everything a renderer needs to draw it. `null` when the image is missing —
+   * the element then draws nothing rather than a broken placeholder.
+   */
+  image: ResolvedImageSource | null;
+  fit: ImageFit;
+  opacity: number;
+}
+
+export interface ResolvedImageSource {
+  id: string;
+  /** Object URL for the screen. */
+  url: string;
+  /** Original bytes for the PDF. */
+  data: Uint8Array;
+  mime: "image/png" | "image/jpeg";
+  /** Pixels, used to preserve aspect under `contain`. */
+  naturalW: number;
+  naturalH: number;
+}
+
+export type ResolvedElement =
+  | ResolvedText
+  | ResolvedIcon
+  | ResolvedRect
+  | ResolvedLine
+  | ResolvedImage;
 
 export interface CardScene {
   elements: ResolvedElement[];

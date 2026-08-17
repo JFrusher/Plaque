@@ -8,6 +8,7 @@ const KINDS: Array<{ kind: NewElementKind; label: string }> = [
   { kind: "icon", label: "Icon" },
   { kind: "rect", label: "Box" },
   { kind: "line", label: "Line" },
+  { kind: "image", label: "Image" },
 ];
 
 export function ElementsPanel() {
@@ -81,5 +82,7 @@ function describe(el: CardElement): string {
       return "box";
     case "line":
       return el.w >= el.h ? "horizontal rule" : "vertical rule";
+    case "image":
+      return el.imageId ? el.imageId.replace(/^img:/, "").replace(/:\d+$/, "") : "(no image)";
   }
 }

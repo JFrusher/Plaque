@@ -7,6 +7,7 @@ import { makeResolveOptions } from "./core/template/resolve";
 import { CardCanvas } from "./render/svg/CardCanvas";
 import { SheetPreview } from "./render/svg/SheetPreview";
 import { loadFonts as loadStoredFonts } from "./state/blobStore";
+import { loadImages, toSource } from "./state/imageStore";
 import { loadBundledFonts, registerFont } from "./state/fontLoader";
 import { load as loadSaved, save } from "./state/persist";
 import { usePlaque } from "./state/store";
@@ -34,6 +35,7 @@ export function App() {
     rows,
     headers,
     fonts,
+    images,
     uploadedIcons,
     page,
     selectedId,
@@ -58,7 +60,13 @@ export function App() {
           // A font that no longer parses should not stop the app from opening.
         }
       }
+      const storedImages = await loadImages();
       if (cancelled) return;
+
+      usePlaque.getState().setImages(
+        new Map(storedImages.map((i) => [i.id, toSource(i)])),
+        Object.fromEntries(storedImages.map((i) => [i.id, i.name])),
+      );
 
       const saved = loadSaved();
       if (saved.status === "ok") {
@@ -97,8 +105,8 @@ export function App() {
   }, [ready, card, sheet, template, headers, rows, uploadedIcons, snapEnabled, state.csvIssues, state.fileName]);
 
   const resolveOptions = useMemo(
-    () => makeResolveOptions(fonts, uploadedIcons),
-    [fonts, uploadedIcons],
+    () => makeResolveOptions(fonts, uploadedIcons, images),
+    [fonts, uploadedIcons, images],
   );
 
   const { sheets, warnings } = useMemo(

@@ -16,13 +16,14 @@ import type {
   CardSpec,
   ElementId,
   Rect,
+  ResolvedImageSource,
   SheetSpec,
   Template,
 } from "../core/types";
 import type { LoadedFont } from "../core/text/measure";
 import { pushHistory, snapshot, type Snapshot } from "./history";
 
-export type NewElementKind = "text" | "icon" | "rect" | "line";
+export type NewElementKind = "text" | "icon" | "rect" | "line" | "image";
 
 export interface PlaqueState extends Snapshot {
   // Guest data
@@ -38,6 +39,10 @@ export interface PlaqueState extends Snapshot {
    */
   fonts: Map<string, LoadedFont>;
   fontLabels: Record<string, string>;
+
+  /** Uploaded images, keyed by imageId. Binaries live in IndexedDB. */
+  images: Map<string, ResolvedImageSource>;
+  imageNames: Record<string, string>;
 
   // User-supplied assets, kept out of localStorage — see blobStore.
   uploadedIcons: Record<string, string>;
@@ -68,6 +73,10 @@ export interface PlaqueState extends Snapshot {
   duplicateElement: (id: ElementId) => void;
   raiseElement: (id: ElementId) => void;
   lowerElement: (id: ElementId) => void;
+
+  setImages: (images: Map<string, ResolvedImageSource>, names: Record<string, string>) => void;
+  addImage: (source: ResolvedImageSource, name: string) => void;
+  removeImage: (id: string) => void;
 
   setFonts: (fonts: Map<string, LoadedFont>, labels: Record<string, string>) => void;
   addFont: (font: LoadedFont, label: string) => void;
@@ -124,6 +133,8 @@ export const usePlaque = create<PlaqueState>()((set) => {
     fileName: null,
     fonts: new Map(),
     fontLabels: {},
+    images: new Map(),
+    imageNames: {},
     uploadedIcons: {},
     uploadedFontIds: [],
     selectedId: null,
@@ -212,6 +223,32 @@ export const usePlaque = create<PlaqueState>()((set) => {
           z: Math.min(0, ...s.template.elements.map((el) => el.z)) - 1,
         }),
       })),
+
+    setImages: (images, imageNames) => set({ images, imageNames }),
+
+    addImage: (source, name) =>
+      set((s) => ({
+        images: new Map(s.images).set(source.id, source),
+        imageNames: { ...s.imageNames, [source.id]: name },
+      })),
+
+    removeImage: (id) =>
+      set((s) => {
+        const images = new Map(s.images);
+        images.delete(id);
+        const { [id]: _dropped, ...imageNames } = s.imageNames;
+        // Elements pointing at it fall back to empty rather than to a stale id.
+        return {
+          images,
+          imageNames,
+          template: {
+            ...s.template,
+            elements: s.template.elements.map((el) =>
+              el.kind === "image" && el.imageId === id ? { ...el, imageId: null } : el,
+            ),
+          },
+        };
+      }),
 
     setFonts: (fonts, fontLabels) => set({ fonts, fontLabels }),
 
@@ -367,6 +404,18 @@ function makeElement(
         strokeHex: "#46443f",
         strokeWidthMm: 0.3,
         dashed: false,
+      };
+    case "image":
+      return {
+        ...base,
+        kind: "image",
+        x: cx - 12,
+        y: cy - 12,
+        w: 24,
+        h: 24,
+        imageId: null,
+        fit: "contain",
+        opacity: 1,
       };
     case "line":
       return {

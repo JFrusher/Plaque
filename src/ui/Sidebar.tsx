@@ -4,6 +4,7 @@ import { FontsPanel } from "./panels/FontsPanel";
 import { GeometryPanel } from "./panels/GeometryPanel";
 import { GuidesPanel } from "./panels/GuidesPanel";
 import { IconRulesPanel } from "./panels/IconRulesPanel";
+import { ImagesPanel } from "./panels/ImagesPanel";
 import { InspectorPanel } from "./panels/InspectorPanel";
 import styles from "./Sidebar.module.css";
 
@@ -15,6 +16,7 @@ export function Sidebar() {
       <ElementsPanel />
       <InspectorPanel />
       <IconRulesPanel />
+      <ImagesPanel />
       <FontsPanel />
       <GuidesPanel />
     </aside>

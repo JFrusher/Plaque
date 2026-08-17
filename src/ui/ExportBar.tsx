@@ -11,7 +11,7 @@ export interface ExportBarProps {
 
 /** The primary action. Everything else on screen exists to make this button correct. */
 export function ExportBar({ sheetCount }: ExportBarProps) {
-  const { card, sheet, template, rows, fonts, uploadedIcons, fileName } = usePlaque();
+  const { card, sheet, template, rows, fonts, images, uploadedIcons, fileName } = usePlaque();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +30,7 @@ export function ExportBar({ sheetCount }: ExportBarProps) {
         rows,
         card,
         sheet,
-        makeResolveOptions(fonts, uploadedIcons),
+        makeResolveOptions(fonts, uploadedIcons, images),
       );
       const { bytes } = await renderPdf({ sheets, fonts, title: nameFor(fileName) });
       // A Blob copy, because the underlying buffer is reused after save().
