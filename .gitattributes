@@ -1,0 +1,8 @@
+* text=auto eol=lf
+
+# This fixture's exact bytes are the test: BOM + CRLF must survive checkout.
+fixtures/guests-messy.csv -text
+
+*.ttf binary
+*.otf binary
+*.pdf binary
