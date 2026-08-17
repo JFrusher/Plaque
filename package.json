@@ -24,6 +24,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@types/fontkit": "^2.0.9",
     "@types/papaparse": "^5.3.16",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

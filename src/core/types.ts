@@ -83,12 +83,17 @@ export type HAlign = "left" | "center" | "right";
 export type VAlign = "top" | "middle" | "bottom";
 export type FitMode = "none" | "shrink" | "wrap" | "shrink-then-wrap";
 
+/**
+ * `align` and `vAlign` are also the point the text shrinks around: text is laid
+ * out inside a fixed box, so a right-aligned block keeps its right edge as it
+ * shrinks, a centred one keeps its centre. There is deliberately no second
+ * anchor setting that could contradict them.
+ */
 export interface FitConfig {
   mode: FitMode;
   /** Floor for shrinking. Below this the text renders at the floor and reports overflow. */
   minFontSizePt: Pt;
-  /** The point scaling shrinks around. */
-  anchor: HAlign;
+  /** Ignored unless the mode wraps. */
   maxLines: number;
 }
 
