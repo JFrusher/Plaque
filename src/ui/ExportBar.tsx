@@ -2,7 +2,6 @@ import { useState } from "react";
 import { hasErrors, validateGeometry } from "../core/geometry/validate";
 import { paginate } from "../core/imposition/paginate";
 import { makeResolveOptions } from "../core/template/resolve";
-import { renderPdf } from "../render/pdf/renderPdf";
 import { usePlaque } from "../state/store";
 import styles from "./ExportBar.module.css";
 
@@ -23,6 +22,9 @@ export function ExportBar({ sheetCount }: ExportBarProps) {
     setBusy(true);
     setError(null);
     try {
+      // pdf-lib and its fontkit are most of the bundle and are only needed at
+      // this moment, so they load on the first export rather than on page open.
+      const { renderPdf } = await import("../render/pdf/renderPdf");
       const { sheets } = paginate(
         template,
         rows,

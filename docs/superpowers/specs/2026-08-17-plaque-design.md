@@ -544,3 +544,76 @@ escort cards, menus, table numbers · PDF-proof preview tab · touch editing ·
 non-Latin script shaping beyond what fontkit gives for free · JSON project
 export/import.
 </implementation_steps>
+
+<build_notes>
+## What was built differently, and why
+
+The spec above is the plan as written. These are the places the build departed
+from it, each because the plan was wrong rather than because it was hard.
+
+**Vertical folds do not invert.** The spec said a vertical fold mirrors the back
+panel. It does — and that is exactly why inversion cannot apply to it. Folding a
+sheet about a vertical axis turns the back panel's artwork into a mirror image,
+and no rotation fixes mirrored glyphs. `invertBackPanel` now applies only to a
+horizontal fold; a vertical fold gets panels and a fold guide but no inversion,
+and the UI disables the toggle and says why. See `core/geometry/fold.ts`.
+
+**`FitConfig.anchor` was removed.** The spec gave text fitting its own anchor
+setting alongside `align`/`vAlign`. They are the same control: text is laid out
+inside a fixed box, so a centred block already keeps its centre as it shrinks and
+a right-aligned one already keeps its right edge. Two settings that can
+contradict each other is a bug waiting to happen. The behaviour the anchor was
+for is delivered by `align`/`vAlign`, and the inspector says so.
+
+**Icons carry a knockout path and their own viewBox.** Two discoveries during
+Phase 8. First, PDF fills with the nonzero rule, so the "free from" diagonal bar
+merged into the silhouette and the icons read as solid blobs — the bar is now a
+separate path painted in the card's background colour. Second, an uploaded SVG
+is not in a 24×24 box, and rescaling arbitrary path data means re-implementing
+every path command including elliptical arcs; icons now carry their viewBox and
+the renderers fit it. `core/template/iconFit.ts` is shared by both.
+
+**The editor shows folded cards upright.** The spec implied the canvas would show
+the card as printed. Editing against a point-reflected back panel means every
+drag fights the coordinate system. `CardCanvas` resolves with
+`invertBackPanel: false`; inversion is applied at imposition, and the geometry
+panel explains that.
+
+**Default icon rules match aliases, not labels.** The first end-to-end render
+showed no icon for gluten-free, dairy-free or nut-free: the rules matched icon
+labels ("Gluten free") and the CSV said "Gluten-Free". Each bundled icon now
+lists the spellings a guest list actually uses.
+
+**The starting template is empty.** It was seeded from `defaultTemplate([])`,
+which produced one text element bound to an empty string — and that made
+`setCsv`'s "template is empty" guard never fire, so nothing ever rendered. The
+initial template is now genuinely empty and the default is built on first upload.
+
+**The zero-backend test checks hosts, not URLs.** Scanning the bundle for any
+`http(s)://` string fails on documentation links inside React and pdf-lib error
+messages. `src/offline.test.ts` allows a small, commented list of hosts that
+appear as inert strings, fails on any other host, and separately asserts that no
+`fetch()` is given an absolute URL.
+
+**Phases 6, 7 and 8 were built and committed together.** The sidebar could not
+compile without the icon and font panels it imports.
+
+**Two extra core modules.** `geometry/transform.ts` (exact 90-degree rotation
+without floating-point dust) and `template/snap.ts`, `template/iconFit.ts`,
+`text/layout.ts` — all pure and tested, all extracted so both renderers share one
+implementation rather than two that drift.
+
+## Verified, not assumed
+
+- `drawSvgPath` emits `s 0 0 -s 0 0 cm`: SVG path coordinates run downward from
+  the anchor point. Confirmed by inflating the content stream, then pinned by a
+  test.
+- pdf-lib builds its text matrix with `Math.cos`/`Math.sin`, so a 180° rotation
+  has 1.2e-16 in the off-diagonal terms. The test matches loosely on purpose.
+- Papaparse calls `transformHeader` more than once per parse, so deduplication
+  state kept across those calls comes out wrong. Parsing runs in array mode and
+  does the header pass itself.
+- Papaparse auto-detects semicolons and tabs, so those exports need no warning.
+- 150 guests, 19 A4 pages: 80KB, ~480ms. The budget was 3.0s.
+</build_notes>
+</implementation_steps>

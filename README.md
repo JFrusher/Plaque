@@ -4,11 +4,17 @@ Turn a guest CSV into print-ready place card PDFs. Everything runs in your
 browser — no account, no upload, no server. Your guest list never leaves your
 device.
 
-- Design one card in a freeform editor, bind text to any CSV column.
-- Any card size, any fold, custom bleed and margins.
-- Layout suggestions that maximise cards per sheet.
-- Crop marks, cut lines and fold guides on A4 or Letter.
-- Vector PDF with embedded fonts — text stays selectable and sharp at any size.
+![Plaque, with a tent card design and the imposed sheet beside it](docs/screenshot.png)
+
+- Design one card in a freeform editor and bind text to any CSV column.
+- Any card size, any fold position, custom bleed and margins — with layout
+  suggestions that work out how to waste the least card stock.
+- Tent cards print the back panel rotated 180°, so it reads from across the
+  table.
+- Names that do not fit shrink, wrap, or tell you which guests are a problem —
+  they never quietly become illegible.
+- Dietary icons mapped from any column, with your own SVGs if you want them.
+- Vector PDF with embedded fonts: text stays selectable and sharp at any size.
 
 ## Development
 
@@ -17,6 +23,7 @@ npm install
 npm run dev        # http://localhost:5173
 npm run test       # vitest, including the PDF smoke test
 npm run build      # static output in dist/
+npm run sample     # writes sample-flat.pdf and sample-tent.pdf from the fixtures
 ```
 
 `dist/` is a plain static bundle. It runs from any host, or straight off the
@@ -34,14 +41,30 @@ template ─┘                                                 └─> pdf-lib 
 ```
 
 - `src/core/` — pure TypeScript. No React, no DOM. All the geometry, text
-  fitting, CSV and imposition logic, and all the unit tests.
+  fitting, CSV and imposition logic, and nearly all the tests.
 - `src/render/` — the two renderers. Read-only consumers of `core/`.
 - `src/state/` — zustand store, undo history, localStorage and IndexedDB.
 - `src/ui/` — the sidebar panels and app chrome.
 
-Full design spec: [docs/superpowers/specs/2026-08-17-plaque-design.md](docs/superpowers/specs/2026-08-17-plaque-design.md)
+Three rules hold the design together:
+
+1. Every stored coordinate is a millimetre, top-left origin, y downward.
+2. `src/render/pdf/renderPdf.ts` is the only file that flips the y-axis for
+   PDF's bottom-left origin.
+3. Font size and line breaks are decided once, in `src/core/text/fit.ts`, from
+   fontkit metrics — never from the browser's own text layout. That is what
+   stops the preview and the printed sheet from disagreeing.
+
+Full design spec:
+[docs/superpowers/specs/2026-08-17-plaque-design.md](docs/superpowers/specs/2026-08-17-plaque-design.md)
+
+## Not in this version
+
+Per-guest overrides · multi-select in the editor · `.woff2` uploads ·
+double-sided printing · menus and table numbers · touch editing ·
+project export/import files.
 
 ## Licence
 
 MIT. Bundled fonts and icons carry their own licences — see
-`src/assets/fonts/LICENSES.md`.
+[src/assets/fonts/LICENSES.md](src/assets/fonts/LICENSES.md).
