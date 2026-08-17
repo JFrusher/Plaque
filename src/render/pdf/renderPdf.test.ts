@@ -2,13 +2,11 @@ import { readFileSync } from "node:fs";
 import zlib from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { BUNDLED_FONTS } from "../../assets/fonts";
-import { makeIconLookup } from "../../assets/icons";
 import { parseCsv } from "../../core/csv/parse";
 import { paginate } from "../../core/imposition/paginate";
-import { fitText } from "../../core/text/fit";
 import { loadFont, type LoadedFont } from "../../core/text/measure";
 import { defaultCard, defaultSheet, defaultTemplate } from "../../core/template/defaults";
-import type { FitTextFn } from "../../core/template/bindings";
+import { makeResolveOptions } from "../../core/template/resolve";
 import type { CardSpec, SheetSpec, Template, TextElement } from "../../core/types";
 import { mmToPt } from "../../core/units";
 import { hexToRgb, renderPdf } from "./renderPdf";
@@ -24,28 +22,11 @@ const fonts = new Map<string, LoadedFont>(
   ]),
 );
 
-const iconPath = makeIconLookup();
-
-const fitWith = (): FitTextFn => (el, text) => {
-  const font = fonts.get(el.fontId);
-  if (!font) return { lines: [text], fontSizePt: el.fontSizePt, overflowed: false };
-  return fitText(font, {
-    text,
-    boxWMm: el.w,
-    boxHMm: el.h,
-    fontSizePt: el.fontSizePt,
-    lineHeight: el.lineHeight,
-    letterSpacingMm: el.letterSpacingMm,
-    fit: el.fit,
-  });
-};
+const resolveOptions = makeResolveOptions(fonts);
 
 function build(csvPath: string, card: CardSpec, sheet: SheetSpec, template?: Template) {
   const { headers, rows } = parseCsv(readFileSync(csvPath, "utf8"));
-  return paginate(template ?? defaultTemplate(headers, card), rows, card, sheet, {
-    fitText: fitWith(),
-    iconPath,
-  });
+  return paginate(template ?? defaultTemplate(headers, card), rows, card, sheet, resolveOptions);
 }
 
 /** Inflates every FlateDecode stream so the drawing operators can be inspected. */

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { panelOf } from "../geometry/fold";
+import { resolveIconId } from "./icons";
 import type { CardSpec } from "../types";
 import { defaultCard, defaultIconRules, defaultSheet, defaultTemplate } from "./defaults";
 
@@ -19,10 +20,22 @@ describe("defaults", () => {
     expect(defaultSheet()).toMatchObject({ page: "A4", orientation: "portrait" });
   });
 
-  it("gives every bundled icon a rule matching its own label", () => {
+  it("maps every spelling a guest list is likely to use", () => {
     const rules = defaultIconRules();
-    expect(rules.length).toBeGreaterThanOrEqual(8);
     expect(rules).toContainEqual({ match: "Vegetarian", iconId: "vegetarian" });
+    // The spellings that a label-only rule set would have missed.
+    expect(rules).toContainEqual({ match: "Gluten-Free", iconId: "gluten-free" });
+    expect(rules).toContainEqual({ match: "Dairy-Free", iconId: "dairy-free" });
+    expect(rules).toContainEqual({ match: "Nut-Free", iconId: "nut-free" });
+  });
+
+  it("resolves every dietary value in the sample fixtures", () => {
+    const rules = defaultIconRules();
+    const values = ["Vegetarian", "Vegan", "Gluten-Free", "Dairy-Free", "Nut-Free", "Halal", "Kosher", "Child"];
+    for (const value of values) {
+      expect(resolveIconId(value, rules, null)).not.toBeNull();
+    }
+    expect(resolveIconId("None", rules, null)).toBeNull();
   });
 });
 

@@ -199,7 +199,11 @@ export interface ResolvedIcon extends ResolvedBase {
   kind: "icon";
   /** SVG path data in a 24x24 viewBox. `null` when no rule matched. */
   pathD: string | null;
+  /** Knocked out of the shape — the diagonal bar on a "free from" mark. */
+  cutD: string | null;
   colorHex: Hex;
+  /** What the knockout is painted in: the card's background, or paper white. */
+  cutHex: Hex;
 }
 
 export interface ResolvedRect extends ResolvedBase {

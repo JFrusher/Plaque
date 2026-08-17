@@ -48,7 +48,7 @@ const icon = (over: Partial<IconElement> = {}): IconElement => ({
 });
 
 const row = { "First Name": "Charis", "Last Name": "Smith", Dietary: "Vegetarian" };
-const paths: Record<string, string> = { leaf: "M12 2 L2 12 L12 22 Z" };
+const paths: Record<string, { d: string }> = { leaf: { d: "M12 2 L2 12 L12 22 Z" } };
 const opts = { fitText: noFit, iconPath: (id: string) => paths[id] ?? null };
 
 describe("resolveCard", () => {
@@ -62,7 +62,7 @@ describe("resolveCard", () => {
   it("resolves an icon to its path", () => {
     const { scene } = resolveCard({ elements: [icon()], backgroundHex: null }, row, card(), opts);
     const el = scene.elements[0];
-    expect(el?.kind === "icon" && el.pathD).toBe(paths["leaf"]);
+    expect(el?.kind === "icon" && el.pathD).toBe(paths["leaf"]!.d);
   });
 
   it("leaves the path null when no rule matches", () => {

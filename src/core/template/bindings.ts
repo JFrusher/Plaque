@@ -7,6 +7,7 @@ import type {
   Template,
   TextElement,
 } from "../types";
+import type { IconArt } from "../../assets/icons";
 import type { GuestRow } from "../csv/parse";
 import { interpolate } from "../csv/interpolate";
 import { transformForPanel } from "../geometry/fold";
@@ -20,7 +21,7 @@ export interface FitResult {
 
 /** Injected so bindings stays pure and testable without loading a font. */
 export type FitTextFn = (element: TextElement, text: string) => FitResult;
-export type IconPathFn = (iconId: string) => string | null;
+export type IconPathFn = (iconId: string) => IconArt | null;
 
 export interface ResolveOptions {
   fitText: FitTextFn;
@@ -108,15 +109,22 @@ export function resolveCard(
 
       case "icon": {
         const iconId = resolveIconForRow(row, el.sourceField, el.rules, el.fallbackIconId);
-        const pathD = iconId ? opts.iconPath(iconId) : null;
-        if (iconId && pathD === null) {
+        const art = iconId ? opts.iconPath(iconId) : null;
+        if (iconId && art === null) {
           warnings.push({
             elementId: el.id,
             kind: "missing-icon",
             detail: `Icon "${iconId}" is not loaded.`,
           });
         }
-        elements.push({ ...base, kind: "icon", pathD, colorHex: el.colorHex });
+        elements.push({
+          ...base,
+          kind: "icon",
+          pathD: art?.d ?? null,
+          cutD: art?.cut ?? null,
+          colorHex: el.colorHex,
+          cutHex: template.backgroundHex ?? "#ffffff",
+        });
         break;
       }
 

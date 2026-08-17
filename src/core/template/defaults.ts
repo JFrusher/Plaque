@@ -40,9 +40,15 @@ export function defaultSheet(): SheetSpec {
   };
 }
 
-/** One rule per bundled icon, matching on its own label. */
+/**
+ * A rule for every spelling each bundled icon answers to, so a guest list that
+ * says "Gluten-Free", "Gluten Free" or "GF" all land on the same icon without
+ * the user writing rules by hand.
+ */
 export function defaultIconRules(): IconRule[] {
-  return BUNDLED_ICONS.map((icon) => ({ match: icon.label, iconId: icon.id }));
+  return BUNDLED_ICONS.flatMap((icon) =>
+    icon.aliases.map((match) => ({ match, iconId: icon.id })),
+  );
 }
 
 /**

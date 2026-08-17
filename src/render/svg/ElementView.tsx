@@ -1,0 +1,106 @@
+import { ICON_VIEWBOX } from "../../assets/icons";
+import { centreOf } from "../../core/geometry/transform";
+import { layoutLines } from "../../core/text/layout";
+import type { LoadedFont } from "../../core/text/measure";
+import type { ResolvedElement } from "../../core/types";
+import { ptToMm } from "../../core/units";
+
+export interface ElementViewProps {
+  element: ResolvedElement;
+  fonts: Map<string, LoadedFont>;
+}
+
+/**
+ * Renders one resolved element in millimetre user units.
+ *
+ * This component makes no layout decisions. Sizes, line breaks and baselines
+ * all arrive already decided by core/, which is what keeps the preview and the
+ * PDF in agreement.
+ */
+export function ElementView({ element: el, fonts }: ElementViewProps) {
+  const centre = centreOf({ x: el.x, y: el.y, w: el.w, h: el.h });
+  const spin =
+    el.rotationDeg === 0 ? undefined : `rotate(${el.rotationDeg} ${centre.x} ${centre.y})`;
+
+  return <g transform={spin}>{renderBody(el, fonts)}</g>;
+}
+
+function renderBody(el: ResolvedElement, fonts: Map<string, LoadedFont>) {
+  switch (el.kind) {
+    case "text": {
+      const font = fonts.get(el.fontId);
+      if (!font || el.lines.length === 0) return null;
+      const lines = layoutLines(font, {
+        lines: el.lines,
+        fontSizePt: el.fontSizePt,
+        lineHeight: el.lineHeight,
+        align: el.align,
+        vAlign: el.vAlign,
+        letterSpacingMm: el.letterSpacingMm,
+        w: el.w,
+        h: el.h,
+      });
+      return (
+        <text
+          fill={el.colorHex}
+          fontFamily={`"${font.family}"`}
+          fontSize={ptToMm(el.fontSizePt)}
+          {...(el.letterSpacingMm ? { letterSpacing: el.letterSpacingMm } : {})}
+        >
+          {lines.map((line, i) => (
+            <tspan key={i} x={el.x + line.baseline.x} y={el.y + line.baseline.y}>
+              {line.text}
+            </tspan>
+          ))}
+        </text>
+      );
+    }
+
+    case "icon": {
+      if (!el.pathD) return null;
+      const side = Math.min(el.w, el.h);
+      const x = el.x + (el.w - side) / 2;
+      const y = el.y + (el.h - side) / 2;
+      const scale = side / ICON_VIEWBOX;
+      return (
+        <g transform={`translate(${x} ${y}) scale(${scale})`}>
+          <path d={el.pathD} fill={el.colorHex} />
+          {el.cutD && <path d={el.cutD} fill={el.cutHex} />}
+        </g>
+      );
+    }
+
+    case "rect":
+      return (
+        <rect
+          x={el.x}
+          y={el.y}
+          width={el.w}
+          height={el.h}
+          fill={el.fillHex ?? "none"}
+          stroke={el.strokeHex ?? "none"}
+          strokeWidth={el.strokeWidthMm}
+          {...(el.dashed ? { strokeDasharray: `${el.strokeWidthMm * 3} ${el.strokeWidthMm * 3}` } : {})}
+        />
+      );
+
+    case "line": {
+      // Matches the PDF renderer: a line runs along the longer axis of its box.
+      const horizontal = el.w >= el.h;
+      const [x1, y1, x2, y2] = horizontal
+        ? [el.x, el.y + el.h / 2, el.x + el.w, el.y + el.h / 2]
+        : [el.x + el.w / 2, el.y, el.x + el.w / 2, el.y + el.h];
+      return (
+        <line
+          x1={x1}
+          y1={y1}
+          x2={x2}
+          y2={y2}
+          stroke={el.strokeHex}
+          strokeWidth={el.strokeWidthMm}
+          {...(el.dashed ? { strokeDasharray: `${el.strokeWidthMm * 3} ${el.strokeWidthMm * 3}` } : {})}
+        />
+      );
+    }
+  }
+}

@@ -5,3 +5,8 @@ dist/
 .remember/
 tmp/
 *.out.pdf
+
+# Local artifacts
+sample-*.pdf
+.playwright-mcp/
+phase*.png

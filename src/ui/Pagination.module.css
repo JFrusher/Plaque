@@ -1,0 +1,31 @@
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2);
+}
+
+.bar button {
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.bar button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.bar button:disabled {
+  color: var(--grey-5);
+  cursor: default;
+}
+
+.label {
+  min-width: 12ch;
+  text-align: center;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
