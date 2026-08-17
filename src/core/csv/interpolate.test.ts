@@ -40,8 +40,30 @@ describe("interpolate", () => {
     expect(interpolate("{{First Name}} {{Dietary}} {{Last Name}}", row).text).toBe("Charis Smith");
   });
 
-  it("trims the result so centred text stays centred", () => {
+  it("closes the gap left by an empty leading or trailing token", () => {
     expect(interpolate("{{Dietary}} {{First Name}}", row).text).toBe("Charis");
+    expect(interpolate("{{First Name}} {{Dietary}}", row).text).toBe("Charis");
+  });
+
+  describe("whitespace the user meant", () => {
+    // Collapsing every run of spaces was rewriting real data. A name with a
+    // deliberate double space, or a template using spacing for layout, must
+    // come out exactly as it went in.
+    it("preserves a double space inside a value", () => {
+      expect(interpolate("{{Name}}", { Name: "Mary  Jane" }).text).toBe("Mary  Jane");
+    });
+
+    it("preserves spacing the template itself contains", () => {
+      expect(interpolate("{{First Name}}   {{Last Name}}", row).text).toBe("Charis   Smith");
+    });
+
+    it("preserves leading and trailing spacing in literal text", () => {
+      expect(interpolate("  Top Table  ", row).text).toBe("  Top Table  ");
+    });
+
+    it("takes only one space per empty token, not every space", () => {
+      expect(interpolate("{{First Name}}   {{Dietary}}", row).text).toBe("Charis  ");
+    });
   });
 
   it("reports a missing column once however often it appears", () => {

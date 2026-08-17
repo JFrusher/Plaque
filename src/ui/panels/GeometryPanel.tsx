@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { defaultFoldPosition } from "../../core/geometry/fold";
 import { computeLayout } from "../../core/geometry/pageLayout";
 import { suggestLayouts } from "../../core/geometry/suggestLayouts";
@@ -9,7 +10,15 @@ import styles from "./GeometryPanel.module.css";
 
 /** FR-STA-02. Any card size, any fold, plus layouts that maximise cards per sheet. */
 export function GeometryPanel() {
-  const { card, sheet, setCard, setSheet, applySuggestion } = usePlaque();
+  const { card, sheet, setCard, setSheet, applySuggestion } = usePlaque(
+    useShallow((s) => ({
+      card: s.card,
+      sheet: s.sheet,
+      setCard: s.setCard,
+      setSheet: s.setSheet,
+      applySuggestion: s.applySuggestion,
+    })),
+  );
 
   const suggestions = useMemo(
     () => suggestLayouts(card, { printerMarginMm: sheet.printerMarginMm, maxResults: 4 }),

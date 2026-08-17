@@ -42,7 +42,18 @@ export function loadFont(id: string, family: string, data: Uint8Array): LoadedFo
   };
 }
 
-/** Advance width of a run, in millimetres, with kerning and ligatures applied. */
+/**
+ * Ink width of a run, in millimetres, with kerning and ligatures applied.
+ *
+ * Letter spacing counts the gaps BETWEEN glyphs — n-1, not n. Both renderers
+ * apply spacing after every glyph including the last, but that final gap only
+ * advances the pen; it draws nothing. Ink extent is what fitting and alignment
+ * care about, so n-1 is the right count for both.
+ *
+ * This only holds because both renderers place text from an explicit left
+ * origin. Switching the SVG renderer to `text-anchor="middle"` would hand
+ * centring to the browser, which uses the full advance, and the two would drift.
+ */
 export function measureWidth(
   font: LoadedFont,
   text: string,

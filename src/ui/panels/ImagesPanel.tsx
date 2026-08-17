@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import type { ImageElement } from "../../core/types";
 import { deleteImage, readImageFile, release, saveImage, toSource } from "../../state/imageStore";
 import { usePlaque } from "../../state/store";
@@ -10,13 +11,23 @@ import styles from "./ImagesPanel.module.css";
  * every card; per-guest images are not in this version.
  */
 export function ImagesPanel() {
-  const { images, imageNames, template, selectedId, addImage, removeImage, updateElement } =
-    usePlaque();
+  const { images, imageNames, elements, selectedId, addImage, removeImage, updateElement } =
+    usePlaque(
+      useShallow((s) => ({
+        images: s.images,
+        imageNames: s.imageNames,
+        elements: s.template.elements,
+        selectedId: s.selectedId,
+        addImage: s.addImage,
+        removeImage: s.removeImage,
+        updateElement: s.updateElement,
+      })),
+    );
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const selected = template.elements.find(
+  const selected = elements.find(
     (el): el is ImageElement => el.kind === "image" && el.id === selectedId,
   );
 

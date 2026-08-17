@@ -646,5 +646,62 @@ selection.
 
 Deliberately not built: a print button. The PDF downloads and the system viewer
 prints it, which is one step and no new failure mode.
+
+## Audit remediation
+
+An adversarial audit against this spec found the following. All are fixed.
+
+**Measured, not assumed — two earlier claims in this document were wrong.**
+
+1. **NFR-3 was not met.** Pagination cost **25.9ms per frame at 150 guests**
+   against a 16.7ms budget, and it ran on every drag frame because the sheet
+   was rebuilt from the live template. The Phase 6 note claiming 60fps was based
+   on a five-guest drag. Fixed: `paginate` takes a page range and the editor
+   imposes only the sheet on screen (**0.66ms**, a 39x improvement), while the
+   all-guest warning pass runs behind `useDeferredValue`.
+2. **Every loaded font was embedded into every PDF.** A single-font document
+   carried all six bundled faces. The smoke test asserted
+   `descriptors.length <= fonts.size`, which passes at six — it was written
+   loosely enough to miss the defect it appeared to cover. Fixed: only faces a
+   text element actually draws with are embedded, and the test now asserts an
+   exact count and that unused family names appear nowhere in the file. The
+   tent sample went from 22KB to 12KB.
+3. **The zustand rationale was not implemented.** This document justified the
+   store by "selectors keep the drag confined to the canvas", then every
+   consumer subscribed to the whole store. Fixed: `useShallow` selectors
+   throughout, and `Sidebar` is memoised so the control column does not
+   re-render with App.
+4. **`crypto.randomUUID` throws outside a secure context**, so adding an element
+   crashed over plain `http://`. Fixed with a guarded fallback.
+5. **Click-to-select pushed an undo entry**, because `onEditStart` fired on
+   pointerdown. Fixed: history records on the first movement past a threshold,
+   so one drag is one entry and a click is none.
+6. **`persist.load` was shallow.** Non-numeric geometry flowed into the layout
+   maths and produced zero sheets with no error. Fixed: every geometry field is
+   validated as finite before the state is accepted.
+7. **Object URLs and FontFaces leaked** on re-load. Fixed: `setImages` revokes
+   what it drops, and font registration is guarded per family.
+8. **`interpolate` rewrote user data**, collapsing every run of spaces and
+   trimming the result. Fixed: it now absorbs exactly one space per empty
+   token and leaves deliberate whitespace alone.
+9. **`notSubset` was computed and discarded**, and unknown element kinds were
+   silently dropped. Both now surface in the UI.
+10. **Uploaded SVGs were not screened for `script`/`animate`.** Not exploitable
+    — only path data is read, and React escapes it — but they are now refused by
+    name.
+11. **The PRD's "client-side JSON file export" was never built.** This was a
+    genuine omission, not a flagged deviation. Now implemented as a
+    self-contained `.plaque.json` carrying the design, guest list and uploaded
+    assets as base64.
+
+**One finding was withdrawn.** The audit claimed letter-spacing measurement
+(n-1 gaps) disagreed with what the renderers draw (n gaps). Re-deriving it: the
+final gap advances the pen but draws no ink, so ink extent really is n-1 gaps in
+both renderers and the measurement was correct. The convention is now documented
+in `measure.ts` and pinned by a test, with a note that it only holds while both
+renderers place text from an explicit left origin.
+
+**Not fixed, needs artwork:** the bundled dietary icons remain geometric
+stand-ins.
 </build_notes>
 </implementation_steps>

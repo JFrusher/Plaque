@@ -37,6 +37,7 @@ export type WarningKind =
   | "missing-field"
   | "missing-icon"
   | "missing-image"
+  | "unknown-element"
   | "empty-text";
 
 export interface CardWarning {
@@ -171,6 +172,17 @@ export function resolveCard(
         }
         elements.push({ ...base, kind: "image", image: source, fit: el.fit, opacity: el.opacity });
         break;
+      }
+
+      default: {
+        // Only reachable from storage written by a different version. Saying so
+        // beats dropping an element the user can see in the layer list.
+        const unknown: { kind?: unknown } = el;
+        warnings.push({
+          elementId: (el as { id: string }).id,
+          kind: "unknown-element",
+          detail: `This design contains a "${String(unknown.kind)}" element that this version cannot draw.`,
+        });
       }
     }
   }

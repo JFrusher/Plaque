@@ -18,6 +18,8 @@ function urlFor(font: BundledFont): string {
   return FONT_URLS[key]!;
 }
 
+const registered = new Set<string>();
+
 /**
  * Parses a font once and uses the SAME bytes twice: fontkit measures with them,
  * and the browser renders the preview with them via FontFace. One binary, one
@@ -30,11 +32,19 @@ export async function registerFont(
   data: Uint8Array,
 ): Promise<LoadedFont> {
   const font = loadFont(id, family, data);
-  if (typeof FontFace !== "undefined" && typeof document !== "undefined") {
-    // Copy: FontFace detaches the buffer it is handed.
-    const face = new FontFace(family, new Uint8Array(data).buffer as ArrayBuffer);
-    await face.load();
-    document.fonts.add(face);
+  if (typeof FontFace !== "undefined" && typeof document !== "undefined" && !registered.has(family)) {
+    // Guarded: development re-runs the loading effect, and adding the same
+    // family twice leaves duplicate faces in the document for the session.
+    registered.add(family);
+    try {
+      // Copy: FontFace detaches the buffer it is handed.
+      const face = new FontFace(family, new Uint8Array(data).buffer as ArrayBuffer);
+      await face.load();
+      document.fonts.add(face);
+    } catch (e) {
+      registered.delete(family);
+      throw e;
+    }
   }
   return font;
 }

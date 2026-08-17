@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { BUNDLED_ICONS, ICON_VIEWBOX, parseStoredIcon, serialiseIcon } from "../../assets/icons";
 import { distinctValues, resolveIconId } from "../../core/template/icons";
 import type { IconElement } from "../../core/types";
@@ -17,7 +18,7 @@ import styles from "./IconRulesPanel.module.css";
  */
 export function IconRulesPanel() {
   const {
-    template,
+    elements,
     rows,
     selectedId,
     uploadedIcons,
@@ -25,11 +26,22 @@ export function IconRulesPanel() {
     updateElement,
     addUploadedIcon,
     removeUploadedIcon,
-  } = usePlaque();
+  } = usePlaque(
+    useShallow((s) => ({
+      elements: s.template.elements,
+      rows: s.rows,
+      selectedId: s.selectedId,
+      uploadedIcons: s.uploadedIcons,
+      select: s.select,
+      updateElement: s.updateElement,
+      addUploadedIcon: s.addUploadedIcon,
+      removeUploadedIcon: s.removeUploadedIcon,
+    })),
+  );
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const iconElements = template.elements.filter((el): el is IconElement => el.kind === "icon");
+  const iconElements = elements.filter((el): el is IconElement => el.kind === "icon");
   const element = iconElements.find((el) => el.id === selectedId) ?? iconElements[0];
 
   const choices = [

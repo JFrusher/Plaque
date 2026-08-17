@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { panelOf } from "../geometry/fold";
 import { resolveIconId } from "./icons";
 import type { CardSpec } from "../types";
-import { defaultCard, defaultIconRules, defaultSheet, defaultTemplate } from "./defaults";
+import { defaultCard, defaultIconRules, defaultSheet, defaultTemplate, newId } from "./defaults";
 
 const headers = ["First Name", "Last Name", "Table", "Dietary", "Entree"];
 
@@ -86,6 +86,22 @@ describe("defaultTemplate", () => {
   it("gives every element a distinct id", () => {
     const ids = defaultTemplate(headers, tent()).elements.map((el) => el.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("still makes ids without crypto.randomUUID, which needs a secure context", () => {
+    const original = globalThis.crypto;
+    // Plain http:// hosting leaves randomUUID undefined.
+    Object.defineProperty(globalThis, "crypto", {
+      value: { ...original, randomUUID: undefined },
+      configurable: true,
+    });
+    try {
+      const ids = Array.from({ length: 500 }, () => newId());
+      expect(ids.every((id) => typeof id === "string" && id.length > 0)).toBe(true);
+      expect(new Set(ids).size).toBe(ids.length);
+    } finally {
+      Object.defineProperty(globalThis, "crypto", { value: original, configurable: true });
+    }
   });
 
   it("assigns z in draw order", () => {

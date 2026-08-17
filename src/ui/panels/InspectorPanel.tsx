@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import type {
   CardElement,
   FitMode,
@@ -27,8 +28,15 @@ import {
  * something to a tenth of a millimetre.
  */
 export function InspectorPanel() {
-  const { template, selectedId, headers, fonts, fontLabels, updateElement } = usePlaque();
-  const element = template.elements.find((el) => el.id === selectedId);
+  const { element, headers, fonts, fontLabels, updateElement } = usePlaque(
+    useShallow((s) => ({
+      element: s.template.elements.find((el) => el.id === s.selectedId),
+      headers: s.headers,
+      fonts: s.fonts,
+      fontLabels: s.fontLabels,
+      updateElement: s.updateElement,
+    })),
+  );
 
   if (!element) {
     return (

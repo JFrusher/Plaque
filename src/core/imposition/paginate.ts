@@ -12,7 +12,17 @@ export interface GuestWarning extends CardWarning {
 export interface PaginateResult {
   sheets: Sheet[];
   layout: PageLayout;
+  /** Total sheets the whole guest list needs, even if only some were built. */
+  sheetCount: number;
   warnings: GuestWarning[];
+}
+
+export interface PaginateOptions {
+  /**
+   * Build only these pages, inclusive. The editor shows one sheet at a time, and
+   * resolving all 150 guests on every drag frame is what puts it under 60fps.
+   */
+  pages?: { from: number; to: number };
 }
 
 /**
@@ -22,25 +32,55 @@ export interface PaginateResult {
  * rotation is folded into each element's own rotation here, so a renderer only
  * ever sees "a box at these millimetres, spun this far about its centre".
  */
+/** Sheets the whole list needs, without building any of them. */
+export function sheetCountFor(rowCount: number, card: CardSpec, sheet: SheetSpec): number {
+  const perSheet = computeLayout(card, sheet).perSheet;
+  return perSheet === 0 || rowCount === 0 ? 0 : Math.ceil(rowCount / perSheet);
+}
+
+/**
+ * Warnings for every guest, without imposing anything.
+ *
+ * Separated from `paginate` so the editor can show one sheet cheaply while the
+ * full "these names do not fit" pass runs at a lower priority.
+ */
+export function collectWarnings(
+  template: Template,
+  rows: GuestRow[],
+  card: CardSpec,
+  opts: ResolveOptions,
+): GuestWarning[] {
+  const warnings: GuestWarning[] = [];
+  for (const [guestIndex, row] of rows.entries()) {
+    for (const w of resolveCard(template, row, card, opts).warnings) {
+      warnings.push({ ...w, guestIndex });
+    }
+  }
+  return warnings;
+}
+
 export function paginate(
   template: Template,
   rows: GuestRow[],
   card: CardSpec,
   sheet: SheetSpec,
   opts: ResolveOptions,
+  options: PaginateOptions = {},
 ): PaginateResult {
   const layout = computeLayout(card, sheet);
   const warnings: GuestWarning[] = [];
   const sheets: Sheet[] = [];
 
   if (layout.perSheet === 0 || rows.length === 0) {
-    return { sheets, layout, warnings };
+    return { sheets, layout, sheetCount: 0, warnings };
   }
 
   const cardSize = { w: card.widthMm, h: card.heightMm };
   const pageCount = Math.ceil(rows.length / layout.perSheet);
+  const from = Math.max(0, options.pages?.from ?? 0);
+  const to = Math.min(pageCount - 1, options.pages?.to ?? pageCount - 1);
 
-  for (let page = 0; page < pageCount; page++) {
+  for (let page = from; page <= to; page++) {
     const guides: SheetGuides = { cropMarks: [], cutLines: [], foldGuides: [], bleedBoxes: [] };
     const cards: Sheet["cards"] = [];
 
@@ -98,5 +138,5 @@ export function paginate(
     });
   }
 
-  return { sheets, layout, warnings };
+  return { sheets, layout, sheetCount: pageCount, warnings };
 }

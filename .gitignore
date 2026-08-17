@@ -10,3 +10,4 @@ tmp/
 sample-*.pdf
 .playwright-mcp/
 phase*.png
+tsconfig.tsbuildinfo

@@ -9,6 +9,9 @@ import type { ElementId, Mm, Point, Rect } from "../../core/types";
 
 export type DragMode = "move" | "n" | "s" | "e" | "w" | "nw" | "ne" | "sw" | "se";
 
+/** Movement below this is a click, not a drag. */
+export const MOVE_THRESHOLD_MM = 0.2;
+
 export interface DragState {
   id: ElementId;
   box: Rect;
@@ -42,6 +45,7 @@ export function useDragElement({
 }: UseDragOptions) {
   const [drag, setDrag] = useState<DragState | null>(null);
   const origin = useRef<{ point: Point; box: Rect; mode: DragMode } | null>(null);
+  const started = useRef(false);
 
   const toMm = useCallback(
     (event: { clientX: number; clientY: number }): Point | null => {
@@ -61,10 +65,13 @@ export function useDragElement({
       event.stopPropagation();
       event.currentTarget.setPointerCapture(event.pointerId);
       origin.current = { point, box, mode };
+      // Deliberately NOT calling onEditStart here. A pointerdown that never
+      // moves is a selection, not an edit, and recording one would put a no-op
+      // entry on the undo stack — so the next Ctrl+Z would appear to do nothing.
+      started.current = false;
       setDrag({ id, box, hitXs: [], hitYs: [] });
-      onEditStart();
     },
-    [onEditStart, toMm],
+    [toMm],
   );
 
   const move = useCallback(
@@ -76,18 +83,28 @@ export function useDragElement({
 
       const dx = point.x - start.point.x;
       const dy = point.y - start.point.y;
+
+      // The first real movement is what counts as the start of an edit, so one
+      // drag produces exactly one undo entry.
+      if (!started.current) {
+        if (Math.hypot(dx, dy) < MOVE_THRESHOLD_MM) return;
+        started.current = true;
+        onEditStart();
+      }
+
       const raw = applyDrag(start.box, start.mode, dx, dy);
       const snapped = snapEnabled ? snapFor(raw, start.mode, snapTargets) : noSnap(raw);
       const box = clampBox(snapped.box);
       setDrag({ id: drag.id, box, hitXs: snapped.hitXs, hitYs: snapped.hitYs });
       onChange(drag.id, box);
     },
-    [drag, onChange, snapEnabled, snapTargets, toMm],
+    [drag, onChange, onEditStart, snapEnabled, snapTargets, toMm],
   );
 
   const end = useCallback(() => {
     if (!origin.current) return;
     origin.current = null;
+    started.current = false;
     setDrag(null);
   }, []);
 

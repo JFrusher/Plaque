@@ -22,8 +22,15 @@ export function WarningsList({ issues, warnings, rows, headers }: WarningsListPr
   const overflowing = [...new Set(warnings.filter((w) => w.kind === "overflow").map((w) => w.guestIndex))];
   const missingFields = [...new Set(warnings.filter((w) => w.kind === "missing-field").map((w) => w.detail))];
   const missingIcons = [...new Set(warnings.filter((w) => w.kind === "missing-icon").map((w) => w.detail))];
+  const unknown = [...new Set(warnings.filter((w) => w.kind === "unknown-element").map((w) => w.detail))];
 
-  if (issues.length === 0 && overflowing.length === 0 && missingFields.length === 0 && missingIcons.length === 0) {
+  if (
+    issues.length === 0 &&
+    overflowing.length === 0 &&
+    missingFields.length === 0 &&
+    missingIcons.length === 0 &&
+    unknown.length === 0
+  ) {
     return null;
   }
 
@@ -43,6 +50,12 @@ export function WarningsList({ issues, warnings, rows, headers }: WarningsListPr
 
       {missingIcons.map((detail) => (
         <li key={detail} className={styles.warning}>
+          {detail}
+        </li>
+      ))}
+
+      {unknown.map((detail) => (
+        <li key={detail} className={styles.error}>
           {detail}
         </li>
       ))}

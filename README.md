@@ -18,6 +18,8 @@ device.
 - Icons mapped from any column — dietary, entrée, anything — with your own SVGs
   if you want them.
 - Vector PDF with embedded fonts: text stays selectable and sharp at any size.
+- Save the whole job — design, guest list and uploads — as one `.plaque.json`
+  file you can move between machines.
 
 **New to Plaque? Start with the [User Guide](USER_GUIDE.md)** — how to build a
 card, lay out a sheet, and print it at the right size.
@@ -68,8 +70,7 @@ Full design spec:
 
 Per-guest overrides · per-guest images from a column · multi-select in the
 editor · `.woff2` uploads · double-sided printing · a print button (the PDF
-downloads, then you print it) · menus and table numbers · touch editing ·
-project export/import files.
+downloads, then you print it) · menus and table numbers · touch editing.
 
 ## Licence
 

@@ -70,7 +70,43 @@ export function load(raw: string | null = readRaw()): LoadResult {
     return { status: "discarded", reason: "The saved design was incomplete." };
   }
 
+  // Every geometry field has to be a real, finite number. A string or a NaN in
+  // here propagates into the layout maths and produces zero sheets with no
+  // error anywhere — a state the user cannot understand or undo out of.
+  const badCard = firstBadNumber(parsed["card"] as Record<string, unknown>, CARD_NUMBERS);
+  const badSheet = firstBadNumber(parsed["sheet"] as Record<string, unknown>, SHEET_NUMBERS);
+  if (badCard || badSheet) {
+    return {
+      status: "discarded",
+      reason: `The saved design had an unusable value for "${badCard ?? badSheet}".`,
+    };
+  }
+
+  if (!Array.isArray(parsed["rows"]) || !Array.isArray(parsed["headers"])) {
+    return { status: "discarded", reason: "The saved guest list could not be read." };
+  }
+
   return { status: "ok", data: parsed as unknown as Persisted };
+}
+
+const CARD_NUMBERS = ["widthMm", "heightMm", "foldPositionMm", "bleedMm"] as const;
+const SHEET_NUMBERS = [
+  "marginTopMm",
+  "marginRightMm",
+  "marginBottomMm",
+  "marginLeftMm",
+  "gapXMm",
+  "gapYMm",
+  "cardRotationDeg",
+  "printerMarginMm",
+] as const;
+
+function firstBadNumber(source: Record<string, unknown>, keys: readonly string[]): string | null {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value !== "number" || !Number.isFinite(value)) return key;
+  }
+  return null;
 }
 
 export function clear(): void {

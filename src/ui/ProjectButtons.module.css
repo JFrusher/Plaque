@@ -1,0 +1,37 @@
+.group {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.button {
+  padding: 4px var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.button:disabled {
+  color: var(--grey-5);
+  cursor: default;
+}
+
+.hidden {
+  display: none;
+}
+
+.error {
+  max-width: 28ch;
+  overflow: hidden;
+  color: var(--danger);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

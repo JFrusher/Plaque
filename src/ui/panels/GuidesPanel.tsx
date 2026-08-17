@@ -1,9 +1,20 @@
+import { useShallow } from "zustand/react/shallow";
 import { usePlaque } from "../../state/store";
 import { CheckboxField, ColorField, Hint, Panel } from "../controls";
 
 /** FR-STA-06, plus the card background. */
 export function GuidesPanel() {
-  const { sheet, setSheet, template, setBackground, snapEnabled, toggleSnap } = usePlaque();
+  const { sheet, setSheet, backgroundHex, setBackground, snapEnabled, toggleSnap } = usePlaque(
+    useShallow((s) => ({
+      sheet: s.sheet,
+      setSheet: s.setSheet,
+      // Only the background, so dragging an element does not redraw this panel.
+      backgroundHex: s.template.backgroundHex,
+      setBackground: s.setBackground,
+      snapEnabled: s.snapEnabled,
+      toggleSnap: s.toggleSnap,
+    })),
+  );
 
   return (
     <Panel title="Guides and background" open={false}>
@@ -31,7 +42,7 @@ export function GuidesPanel() {
 
       <ColorField
         label="Card background"
-        value={template.backgroundHex}
+        value={backgroundHex}
         allowNone
         onChange={setBackground}
       />

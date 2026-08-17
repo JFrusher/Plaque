@@ -224,7 +224,15 @@ export const usePlaque = create<PlaqueState>()((set) => {
         }),
       })),
 
-    setImages: (images, imageNames) => set({ images, imageNames }),
+    setImages: (images, imageNames) =>
+      set((s) => {
+        // Every object URL that is not carried over leaks its blob otherwise,
+        // and in development React runs the loading effect twice.
+        for (const [id, source] of s.images) {
+          if (images.get(id) !== source) URL.revokeObjectURL(source.url);
+        }
+        return { images, imageNames };
+      }),
 
     addImage: (source, name) =>
       set((s) => ({
@@ -235,6 +243,8 @@ export const usePlaque = create<PlaqueState>()((set) => {
     removeImage: (id) =>
       set((s) => {
         const images = new Map(s.images);
+        const dropped = images.get(id);
+        if (dropped) URL.revokeObjectURL(dropped.url);
         images.delete(id);
         const { [id]: _dropped, ...imageNames } = s.imageNames;
         // Elements pointing at it fall back to empty rather than to a stale id.

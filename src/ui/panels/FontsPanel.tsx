@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { BUNDLED_FONTS } from "../../assets/fonts";
 import { deleteFont, saveFont } from "../../state/blobStore";
 import { registerFont } from "../../state/fontLoader";
@@ -10,7 +11,15 @@ const ACCEPTED = /\.(ttf|otf)$/i;
 
 /** FR-STA-07. Bundled faces plus the user's own .ttf/.otf. */
 export function FontsPanel() {
-  const { fonts, fontLabels, uploadedFontIds, addFont, removeFont } = usePlaque();
+  const { fonts, fontLabels, uploadedFontIds, addFont, removeFont } = usePlaque(
+    useShallow((s) => ({
+      fonts: s.fonts,
+      fontLabels: s.fontLabels,
+      uploadedFontIds: s.uploadedFontIds,
+      addFont: s.addFont,
+      removeFont: s.removeFont,
+    })),
+  );
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

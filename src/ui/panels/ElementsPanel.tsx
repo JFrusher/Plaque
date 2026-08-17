@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import type { CardElement } from "../../core/types";
 import { usePlaque, type NewElementKind } from "../../state/store";
 import { Panel } from "../controls";
@@ -13,7 +14,7 @@ const KINDS: Array<{ kind: NewElementKind; label: string }> = [
 
 export function ElementsPanel() {
   const {
-    template,
+    elements,
     selectedId,
     select,
     addElement,
@@ -21,10 +22,21 @@ export function ElementsPanel() {
     duplicateElement,
     raiseElement,
     lowerElement,
-  } = usePlaque();
+  } = usePlaque(
+    useShallow((s) => ({
+      elements: s.template.elements,
+      selectedId: s.selectedId,
+      select: s.select,
+      addElement: s.addElement,
+      removeElement: s.removeElement,
+      duplicateElement: s.duplicateElement,
+      raiseElement: s.raiseElement,
+      lowerElement: s.lowerElement,
+    })),
+  );
 
   // Topmost first, matching what the eye sees on the card.
-  const ordered = [...template.elements].sort((a, b) => b.z - a.z);
+  const ordered = [...elements].sort((a, b) => b.z - a.z);
 
   return (
     <Panel title="Elements">

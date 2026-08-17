@@ -17,7 +17,12 @@ export function parseSvgIcon(source: string): ParsedIcon {
   const svg = doc.querySelector("svg");
   if (!svg) return { ok: false, reason: "That file has no <svg> element." };
 
-  const unsupported = svg.querySelector("image, text, use, foreignObject, filter, linearGradient, radialGradient, pattern, mask, clipPath");
+  const unsupported = svg.querySelector(
+    // Nothing here can become a filled path. `script`, `animate` and `set`
+    // cannot either, and are listed so an active file is refused by name rather
+    // than quietly having its paths harvested.
+    "image, text, use, foreignObject, filter, linearGradient, radialGradient, pattern, mask, clipPath, script, animate, animateTransform, set",
+  );
   if (unsupported) {
     return {
       ok: false,

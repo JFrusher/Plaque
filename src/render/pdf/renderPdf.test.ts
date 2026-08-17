@@ -104,14 +104,37 @@ describe("renderPdf — 150 guests, 8 up on A4", () => {
     expect(await extractText(bytes, 2)).toContain("Rafferty");
   });
 
-  it("embeds each face once, not once per card", async () => {
+  it("embeds ONLY the faces the document draws with, once each", async () => {
     const { bytes } = await renderPdf({ sheets, fonts });
     // Font descriptors live inside compressed object streams, so the raw bytes
     // are not searchable — they have to be inflated first.
     const all = [Buffer.from(bytes).toString("latin1"), ...contentStreams(bytes)].join("\n");
     const descriptors = all.match(/\/FontFile2/g) ?? [];
-    expect(descriptors.length).toBeGreaterThan(0);
-    expect(descriptors.length).toBeLessThanOrEqual(fonts.size);
+
+    const drawn = new Set(
+      sheets.flatMap((s) =>
+        s.cards.flatMap((c) =>
+          c.scene.elements.flatMap((el) =>
+            el.kind === "text" && el.lines.length > 0 ? [el.fontId] : [],
+          ),
+        ),
+      ),
+    );
+
+    // An exact count, not "at most". The earlier `<= fonts.size` assertion
+    // passed while all six bundled faces were being embedded into a
+    // single-font document.
+    expect(drawn.size).toBeGreaterThan(0);
+    expect(drawn.size).toBeLessThan(fonts.size);
+    expect(descriptors.length).toBe(drawn.size);
+  });
+
+  it("carries no trace of a bundled face it never used", async () => {
+    const { bytes } = await renderPdf({ sheets, fonts });
+    const all = [Buffer.from(bytes).toString("latin1"), ...contentStreams(bytes)].join("\n");
+    for (const unused of ["GreatVibes", "Parisienne", "Marcellus", "Lato"]) {
+      expect(all).not.toContain(unused);
+    }
   });
 
   it("subsets rather than embedding whole files", async () => {

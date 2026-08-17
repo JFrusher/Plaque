@@ -25,26 +25,45 @@ export interface Interpolated {
  * An unknown token resolves to an empty string rather than being left on the
  * card as literal `{{Nickname}}` — a stray token printed onto a hundred cards is
  * far worse than a gap. The name is returned in `missing` so the UI can say so.
+ *
+ * When a token comes out empty it takes ONE adjacent space with it, so
+ * "{{First}} {{Last}}" with no surname does not leave a trailing space that
+ * shifts centred text off centre. Whitespace the user typed deliberately, and
+ * whitespace inside a value, is left exactly as it is — silently rewriting
+ * someone's data is not this function's job.
  */
 export function interpolate(template: string, row: GuestRow): Interpolated {
   const missing: string[] = [];
-  const text = template.replace(TOKEN, (_match, rawName: string) => {
-    const name = rawName.trim();
-    if (!name) return "";
+  let out = "";
+  let cursor = 0;
+
+  for (const match of template.matchAll(TOKEN)) {
+    const start = match.index;
+    const name = (match[1] ?? "").trim();
+    out += template.slice(cursor, start);
+    cursor = start + match[0].length;
+
+    if (!name) continue;
+
     const value = row[name];
     if (value === undefined) {
       if (!missing.includes(name)) missing.push(name);
-      return "";
     }
-    return value;
-  });
-  return { text: collapseGaps(text), missing };
-}
 
-/**
- * "{{First Name}} {{Last Name}}" with an empty surname would otherwise leave a
- * trailing space, which shifts centred text off centre.
- */
-function collapseGaps(text: string): string {
-  return text.replace(/[ \t]{2,}/g, " ").trim();
+    if (value) {
+      out += value;
+      continue;
+    }
+
+    // Empty or missing: absorb one space on whichever side it had one, so the
+    // gap it leaves behind closes up.
+    if (out.endsWith(" ")) {
+      out = out.slice(0, -1);
+    } else if (template[cursor] === " ") {
+      cursor += 1;
+    }
+  }
+
+  out += template.slice(cursor);
+  return { text: out, missing };
 }

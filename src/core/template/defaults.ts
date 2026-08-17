@@ -5,8 +5,21 @@ import { panelBounds } from "../geometry/fold";
 import { DEFAULT_FIT } from "../text/fit";
 import type { CardElement, CardSpec, ElementId, IconRule, SheetSpec, Template } from "../types";
 
+let fallbackCounter = 0;
+
+/**
+ * `crypto.randomUUID` only exists in a secure context, so it is undefined when
+ * the app is served from a plain `http://` address on a LAN or intranet. Ids
+ * only have to be unique within one document, not unguessable, so a timestamp
+ * plus a counter plus randomness is a perfectly good substitute.
+ */
 export function newId(): ElementId {
-  return crypto.randomUUID();
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  fallbackCounter += 1;
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `el-${Date.now().toString(36)}-${fallbackCounter.toString(36)}-${rand}`;
 }
 
 /** A flat 85x55mm place card — the most common thing anyone prints. */

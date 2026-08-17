@@ -48,6 +48,33 @@ describe("load", () => {
     expect(load(JSON.stringify(broken))).toMatchObject({ status: "discarded" });
   });
 
+  it("discards a design whose numbers are not numbers", () => {
+    // Hand-edited or half-migrated storage. Left unchecked these reach the
+    // layout maths and silently produce zero sheets.
+    const stringy = load(
+      JSON.stringify({ ...good(), card: { ...good().card, widthMm: "85" } }),
+    );
+    expect(stringy).toMatchObject({ status: "discarded" });
+    expect(stringy.status === "discarded" && stringy.reason).toMatch(/widthMm/);
+
+    expect(
+      load(JSON.stringify({ ...good(), sheet: { ...good().sheet, gapXMm: null } })),
+    ).toMatchObject({ status: "discarded" });
+  });
+
+  it("discards NaN and Infinity, which JSON round-trips as null", () => {
+    for (const value of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      const raw = JSON.stringify({ ...good(), card: { ...good().card, bleedMm: value } });
+      expect(load(raw)).toMatchObject({ status: "discarded" });
+    }
+  });
+
+  it("discards a save whose guest list is not a list", () => {
+    expect(load(JSON.stringify({ ...good(), rows: "nope" }))).toMatchObject({
+      status: "discarded",
+    });
+  });
+
   it("discards a bare array or primitive", () => {
     expect(load("[]")).toMatchObject({ status: "discarded" });
     expect(load("42")).toMatchObject({ status: "discarded" });

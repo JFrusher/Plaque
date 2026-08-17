@@ -391,8 +391,20 @@ address appears in it.
 - Clearing your browser's site data clears your design too.
 - Uploaded fonts and images are stored the same way.
 
+### Saving a project
+
+**Save project** writes everything — the design, the guest list, and any fonts
+and images you uploaded — into a single `.plaque.json` file you can keep
+anywhere. **Open project** loads one back.
+
+Use it to move a design to another computer, to keep a backup before pressing
+Clear all data, or to hand the whole job to someone else. The file is
+self-contained: it carries your uploaded artwork inside it, so it opens correctly
+on a machine that has never seen those files.
+
 **Clear all data** in the top right deletes the guest list, the design and your
-uploads from the device. It cannot be undone.
+uploads from the device. It cannot be undone — save a project first if you want
+to keep the work.
 
 If your list contains personal information — and a wedding guest list with
 dietary requirements does — remember that it stays in your browser storage until
@@ -413,7 +425,7 @@ you clear it. On a shared computer, clear it when you're finished.
 | Crop marks run off the page | Margins too small for marks plus bleed | Increase margins to at least bleed + 5mm |
 | Text upside down on the sheet | Correct for a tent card's back panel | See [§6](#6-card-shapes-and-folds) |
 | "Plaque needs a bigger screen" | Below 1024px wide | Open it on a laptop or desktop |
-| Everything vanished | Different browser/device, or site data cleared | Storage is per-browser; nothing is recoverable |
+| Everything vanished | Different browser/device, or site data cleared | Storage is per-browser. Reopen a saved `.plaque.json` if you have one |
 
 ---
 
@@ -425,13 +437,11 @@ Worth knowing before you plan around them:
 - **One design for everyone.** No per-guest tweaks, and images are the same on
   every card.
 - **Single-sided.** No duplex printing.
-- **No project file.** You can't export your design to move it to another
-  machine or to back it up.
 - **No print button.** Download the PDF, then print it from your viewer.
-- **Large lists slow the editor.** Around 150 guests, dragging becomes less
-  smooth because the sheet preview redraws every card as you move. Design your
-  card with a short list loaded, then load the full one to export.
 - Changing the card size doesn't reposition existing elements.
+- The "names that don't fit" list checks every guest, so on a long list it can
+  trail your edits by a moment. It always catches up; the card and sheet
+  previews stay responsive meanwhile.
 
 ---
 

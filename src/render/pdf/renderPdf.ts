@@ -39,7 +39,11 @@ export async function renderPdf(opts: RenderPdfOptions): Promise<RenderPdfResult
   doc.setProducer("Plaque");
   doc.setCreator("Plaque");
 
-  const { fonts: embedded, notSubset } = await embedFonts(doc, opts.fonts.values());
+  // Only the faces actually drawn. Embedding every loaded font put six
+  // subsetted faces into a document that used one.
+  const used = fontIdsUsedBy(opts.sheets);
+  const needed = [...opts.fonts.values()].filter((font) => used.has(font.id));
+  const { fonts: embedded, notSubset } = await embedFonts(doc, needed);
   const images = await embedImages(doc, opts.sheets);
 
   for (const sheet of opts.sheets) {
@@ -199,6 +203,19 @@ function drawElement(
       return;
     }
   }
+}
+
+/** Font ids referenced by a text element that actually has something to draw. */
+function fontIdsUsedBy(sheets: Sheet[]): Set<string> {
+  const used = new Set<string>();
+  for (const sheet of sheets) {
+    for (const card of sheet.cards) {
+      for (const el of card.scene.elements) {
+        if (el.kind === "text" && el.lines.length > 0) used.add(el.fontId);
+      }
+    }
+  }
+  return used;
 }
 
 /**

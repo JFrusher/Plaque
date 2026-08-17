@@ -41,3 +41,11 @@
   color: var(--danger);
   font-size: var(--text-xs);
 }
+
+.note {
+  padding: var(--sp-2);
+  border-radius: var(--radius);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: var(--text-xs);
+}

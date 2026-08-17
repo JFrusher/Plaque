@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { parseCsv } from "../../core/csv/parse";
 import { usePlaque } from "../../state/store";
 import { Hint, Panel } from "../controls";
@@ -6,7 +7,15 @@ import styles from "./DataPanel.module.css";
 
 /** FR-STA-01. Drag-and-drop or pick a CSV; every column becomes a bindable token. */
 export function DataPanel() {
-  const { headers, rows, csvIssues, fileName, setCsv } = usePlaque();
+  const { headers, rows, csvIssues, fileName, setCsv } = usePlaque(
+    useShallow((s) => ({
+      headers: s.headers,
+      rows: s.rows,
+      csvIssues: s.csvIssues,
+      fileName: s.fileName,
+      setCsv: s.setCsv,
+    })),
+  );
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const [error, setError] = useState<string | null>(null);

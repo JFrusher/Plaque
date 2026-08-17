@@ -47,9 +47,26 @@ describe("measureWidth", () => {
   });
 
   it("adds letter spacing between characters only", () => {
+    // Four glyphs have three gaps. The spacing a renderer applies after the
+    // last glyph advances the pen but draws no ink, so it must not be counted:
+    // this is the width used for fitting and for alignment, and both are about
+    // where the ink actually ends.
     const plain = measureWidth(crimson, "abcd", 12);
     expect(measureWidth(crimson, "abcd", 12, 1)).toBeCloseTo(plain + 3, 6);
     expect(measureWidth(crimson, "a", 12, 1)).toBeCloseTo(measureWidth(crimson, "a", 12), 6);
+    expect(measureWidth(crimson, "", 12, 1)).toBe(0);
+  });
+
+  it("counts gaps, not glyphs, at every length", () => {
+    for (const [text, gaps] of [
+      ["a", 0],
+      ["ab", 1],
+      ["abc", 2],
+      ["abcdefghij", 9],
+    ] as const) {
+      const spaced = measureWidth(crimson, text, 12, 2) - measureWidth(crimson, text, 12);
+      expect(spaced).toBeCloseTo(gaps * 2, 6);
+    }
   });
 
   it("measures a longer name as wider", () => {
