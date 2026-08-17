@@ -1,0 +1,96 @@
+/* Plaque design tokens. The only global stylesheet — everything else is a CSS Module. */
+
+:root {
+  /* Neutral scale. The chrome recedes; the canvas is the hero. */
+  --grey-0: #ffffff;
+  --grey-1: #fafafa;
+  --grey-2: #f2f2f1;
+  --grey-3: #e6e5e3;
+  --grey-4: #d4d3d0;
+  --grey-5: #a8a6a1;
+  --grey-6: #6f6d68;
+  --grey-7: #46443f;
+  --grey-8: #2a2925;
+  --grey-9: #171613;
+
+  /* One accent. Used for selection, focus and the primary action. Nothing else. */
+  --accent: #2f6d5f;
+  --accent-hover: #275c50;
+  --accent-soft: #e4efec;
+
+  --warn: #9a6b12;
+  --warn-soft: #fbf1dd;
+  --danger: #a33a2c;
+  --danger-soft: #f9e8e5;
+
+  --surface: var(--grey-0);
+  --surface-sunken: var(--grey-2);
+  --canvas-bg: var(--grey-3);
+  --border: var(--grey-4);
+  --border-strong: var(--grey-5);
+  --text: var(--grey-9);
+  --text-muted: var(--grey-6);
+
+  /* Type. Tight scale — a tool, not a brochure. */
+  --font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 15px;
+  --text-xl: 19px;
+
+  /* Spacing. 4px base. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  --radius: 4px;
+  --radius-lg: 6px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 12px rgb(0 0 0 / 0.05);
+
+  --sidebar-w: 320px;
+  --header-h: 48px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  color: var(--text);
+  background: var(--surface);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

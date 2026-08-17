@@ -1,0 +1,10 @@
+﻿First Name,Last Name,Table,Dietary,Entree,Notes
+Chloé,Beaumont,Table 1,Vegetarian,Risotto,"Allergic to celery, mildly"
+Ólafur,Sørensen,Table 1,None,Beef,
+李伟,Zhang,Table 2,Vegan,Aubergine,"Says ""no mushrooms"" every year"
+Bartholomew,Featherstonehaugh,Table 2,Gluten-Free,Chicken,Long name test
+  Niamh  ,  O'Dwyer  ,Table 3,Nut-Free,Salmon,Padded whitespace
+Ragged,Row,Table 3
+
+Extra,Columns,Table 4,None,Lamb,Fine,ThisIsAnExtraField
+Trailing,Guest,Table 4,Halal,Chicken,
