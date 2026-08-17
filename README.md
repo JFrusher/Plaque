@@ -19,6 +19,9 @@ device.
   if you want them.
 - Vector PDF with embedded fonts: text stays selectable and sharp at any size.
 
+**New to Plaque? Start with the [User Guide](USER_GUIDE.md)** — how to build a
+card, lay out a sheet, and print it at the right size.
+
 ## Development
 
 ```sh
