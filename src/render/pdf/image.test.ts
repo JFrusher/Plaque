@@ -102,7 +102,7 @@ function sheetWith(template: Template, images = new Map([["img:test", source]]))
     index: 0,
     pageWidthMm: 210,
     pageHeightMm: 297,
-    cards: [{ origin: { x: 0, y: 0 }, footprint: { w: card.widthMm, h: card.heightMm }, guestIndex: 0, scene }],
+    cards: [{ origin: { x: 0, y: 0 }, footprint: { w: card.widthMm, h: card.heightMm }, artefactIndex: 0, scene }],
     guides: { cropMarks: [], cutLines: [], foldGuides: [], bleedBoxes: [] },
   };
 }
@@ -125,7 +125,7 @@ describe("image elements", () => {
     const sheet = sheetWith({ elements: [imageEl()], backgroundHex: null });
     const eight: Sheet = {
       ...sheet,
-      cards: Array.from({ length: 8 }, (_, i) => ({ ...sheet.cards[0]!, guestIndex: i })),
+      cards: Array.from({ length: 8 }, (_, i) => ({ ...sheet.cards[0]!, artefactIndex: i })),
     };
 
     const count = (bytes: Uint8Array) =>

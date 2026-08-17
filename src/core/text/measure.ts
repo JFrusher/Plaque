@@ -97,14 +97,18 @@ export function breakLines(
   const out: string[] = [];
 
   for (const paragraph of explicit) {
-    const words = paragraph.split(/\s+/).filter(Boolean);
+    const words = splitForBreaking(paragraph);
     if (words.length === 0) {
       out.push("");
       continue;
     }
     let line = "";
     for (const word of words) {
-      const candidate = line ? `${line} ${word}` : word;
+      // A space is only reinserted between two space-separated pieces. CJK
+      // breaks happen between characters that never had a space, and inventing
+      // one would print a gap that is not in the name.
+      const joiner = line && needsSpace(line, word) ? " " : "";
+      const candidate = `${line}${joiner}${word}`;
       if (line && measureWidth(font, candidate, sizePt, letterSpacingMm) > maxWidthMm) {
         out.push(line);
         line = word;
@@ -122,6 +126,50 @@ export function breakLines(
   const kept = out.slice(0, Math.max(1, maxLines - 1));
   kept.push(out.slice(Math.max(1, maxLines - 1)).join(" "));
   return kept;
+}
+
+/**
+ * Scripts that break between characters rather than between words: CJK
+ * ideographs, kana, and Hangul syllables (E2).
+ */
+const PER_CHARACTER =
+  /[぀-ヿ㐀-䶿一-鿿豈-﫿가-힯　-〿]/u;
+
+/**
+ * Breakable pieces of a paragraph.
+ *
+ * Latin text breaks at spaces. A run of CJK breaks between its characters,
+ * because a forty-character Japanese name has no spaces in it and would
+ * otherwise be one unbreakable "word" that overflows every box.
+ */
+export function splitForBreaking(paragraph: string): string[] {
+  const pieces: string[] = [];
+  for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+    if (!PER_CHARACTER.test(word)) {
+      pieces.push(word);
+      continue;
+    }
+    // Mixed runs keep their Latin parts whole and split the CJK part per glyph.
+    let latin = "";
+    for (const char of word) {
+      if (PER_CHARACTER.test(char)) {
+        if (latin) pieces.push(latin);
+        latin = "";
+        pieces.push(char);
+      } else {
+        latin += char;
+      }
+    }
+    if (latin) pieces.push(latin);
+  }
+  return pieces;
+}
+
+/** Two Latin pieces were separated by a space; CJK characters never were. */
+function needsSpace(line: string, next: string): boolean {
+  const last = [...line].at(-1) ?? "";
+  const first = [...next][0] ?? "";
+  return !PER_CHARACTER.test(last) && !PER_CHARACTER.test(first);
 }
 
 export function widestLineMm(

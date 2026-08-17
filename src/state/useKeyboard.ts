@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { usePlaque } from "./store";
 
-const NUDGE_MM = 1;
-const FINE_NUDGE_MM = 0.1;
+/** S-B.2: arrows nudge 0.5mm, Shift+arrow 5mm. Alt suppresses snapping mid-drag. */
+const NUDGE_MM = 0.5;
+const COARSE_NUDGE_MM = 5;
 
 const ARROWS: Record<string, [number, number] | undefined> = {
   ArrowLeft: [-1, 0],
@@ -38,8 +39,34 @@ export function useKeyboard(): void {
         return;
       }
 
+      // Tab cycles the elements on the side being edited, so the canvas is
+      // reachable without a mouse at all.
+      if (event.key === "Tab" && !mod) {
+        const onSide = state.template.elements
+          .filter((el) => (el.side ?? "front") === state.editingSide)
+          .sort((a, b) => a.z - b.z);
+        if (onSide.length === 0) return;
+        event.preventDefault();
+        const at = onSide.findIndex((el) => el.id === state.selectedId);
+        const next = event.shiftKey ? at - 1 : at + 1;
+        const wrapped = ((next % onSide.length) + onSide.length) % onSide.length;
+        state.select(onSide[at === -1 ? 0 : wrapped]!.id);
+        return;
+      }
+
       const id = state.selectedId;
       if (!id) return;
+
+      if (event.key === "[") {
+        event.preventDefault();
+        state.lowerElement(id);
+        return;
+      }
+      if (event.key === "]") {
+        event.preventDefault();
+        state.raiseElement(id);
+        return;
+      }
 
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
@@ -61,7 +88,7 @@ export function useKeyboard(): void {
       event.preventDefault();
       const element = state.template.elements.find((el) => el.id === id);
       if (!element) return;
-      const step = event.shiftKey ? FINE_NUDGE_MM : NUDGE_MM;
+      const step = event.shiftKey ? COARSE_NUDGE_MM : NUDGE_MM;
       state.updateElement(id, {
         x: round(element.x + delta[0] * step),
         y: round(element.y + delta[1] * step),

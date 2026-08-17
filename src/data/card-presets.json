@@ -1,0 +1,77 @@
+{
+  "$comment": "Product presets — the physical thing being made. Contributors add an entry here and it appears in the Card panel with no code change. Sizes are the finished, folded article: a tent card is stated as its flat sheet with the fold position that makes it stand.",
+  "presets": [
+    {
+      "id": "place-card-flat",
+      "name": "Place card, flat — 85 × 55mm",
+      "widthMm": 85,
+      "heightMm": 55,
+      "fold": "none",
+      "foldPositionMm": 27.5
+    },
+    {
+      "id": "place-card-tent",
+      "name": "Place card, tent — 85 × 55mm folded",
+      "widthMm": 85,
+      "heightMm": 110,
+      "fold": "horizontal",
+      "foldPositionMm": 55
+    },
+    {
+      "id": "escort-card",
+      "name": "Escort card — 90 × 50mm",
+      "widthMm": 90,
+      "heightMm": 50,
+      "fold": "none",
+      "foldPositionMm": 25
+    },
+    {
+      "id": "table-number",
+      "name": "Table number — 100 × 150mm",
+      "widthMm": 100,
+      "heightMm": 150,
+      "fold": "none",
+      "foldPositionMm": 75
+    },
+    {
+      "id": "table-number-tent",
+      "name": "Table number, tent — 100 × 140mm folded",
+      "widthMm": 100,
+      "heightMm": 280,
+      "fold": "horizontal",
+      "foldPositionMm": 140
+    },
+    {
+      "id": "table-menu",
+      "name": "Table menu — 105 × 210mm",
+      "widthMm": 105,
+      "heightMm": 210,
+      "fold": "none",
+      "foldPositionMm": 105
+    },
+    {
+      "id": "name-badge",
+      "name": "Name badge — 90 × 54mm",
+      "widthMm": 90,
+      "heightMm": 54,
+      "fold": "none",
+      "foldPositionMm": 27
+    },
+    {
+      "id": "gift-tag",
+      "name": "Gift tag — 45 × 90mm",
+      "widthMm": 45,
+      "heightMm": 90,
+      "fold": "none",
+      "foldPositionMm": 45
+    },
+    {
+      "id": "run-sheet-a4",
+      "name": "Kitchen run-sheet — A4 page",
+      "widthMm": 190,
+      "heightMm": 277,
+      "fold": "none",
+      "foldPositionMm": 138.5
+    }
+  ]
+}

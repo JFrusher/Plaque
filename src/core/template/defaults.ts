@@ -50,6 +50,10 @@ export function defaultSheet(): SheetSpec {
     cutLines: true,
     foldGuides: true,
     bleedGuides: true,
+    duplex: false,
+    // Off by default: it is a diagnostic strip, and most sheets get trimmed to
+    // the crop marks anyway. On is one click away in Guides.
+    slugLine: false,
   };
 }
 

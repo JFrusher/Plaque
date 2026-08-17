@@ -82,6 +82,8 @@ export function suggestLayouts(card: CardSpec, opts: SuggestOptions = {}): Layou
           cutLines: true,
           foldGuides: true,
           bleedGuides: true,
+          duplex: false,
+          slugLine: false,
         };
         const layout = computeLayout(card, probe);
         if (layout.perSheet === 0) continue;

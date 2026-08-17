@@ -1,0 +1,64 @@
+{
+  "format": "plaque-template",
+  "version": 1,
+  "id": "place-card-classic",
+  "name": "Place card — classic centred",
+  "description": "One guest per card. Name centred, table beneath it, dietary icon in the corner.",
+  "card": { "widthMm": 85, "heightMm": 55, "fold": "none", "foldPositionMm": 27.5, "bleedMm": 0 },
+  "template": {
+    "backgroundHex": null,
+    "rowScope": { "kind": "per-row" },
+    "elements": [
+      {
+        "kind": "text",
+        "id": "name",
+        "x": 8,
+        "y": 18,
+        "w": 69,
+        "h": 16,
+        "z": 0,
+        "template": "{{First Name}} {{Last Name}}",
+        "fontId": "crimson",
+        "fontSizePt": 22,
+        "align": "center",
+        "vAlign": "middle",
+        "lineHeight": 1.15,
+        "colorHex": "#171613",
+        "letterSpacingMm": 0,
+        "fit": { "mode": "shrink", "minFontSizePt": 11, "maxLines": 2, "anchor": "align" },
+        "optical": { "opticalAlign": true, "hangingPunctuation": false, "features": null }
+      },
+      {
+        "kind": "text",
+        "id": "table",
+        "x": 8,
+        "y": 35,
+        "w": 69,
+        "h": 7,
+        "z": 1,
+        "template": "{{Table}}",
+        "fontId": "lato",
+        "fontSizePt": 9,
+        "align": "center",
+        "vAlign": "middle",
+        "lineHeight": 1.2,
+        "colorHex": "#6f6d68",
+        "letterSpacingMm": 0.4,
+        "fit": { "mode": "shrink", "minFontSizePt": 6, "maxLines": 1, "anchor": "align" }
+      },
+      {
+        "kind": "icon",
+        "id": "dietary",
+        "x": 69,
+        "y": 39,
+        "w": 8,
+        "h": 8,
+        "z": 2,
+        "sourceField": "Dietary",
+        "rules": [],
+        "fallbackIconId": null,
+        "colorHex": "#46443f"
+      }
+    ]
+  }
+}

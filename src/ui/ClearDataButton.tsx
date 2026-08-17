@@ -13,7 +13,7 @@ export function ClearDataButton() {
   const [confirming, setConfirming] = useState(false);
 
   async function wipe() {
-    clearStorage();
+    await clearStorage();
     await clearBlobs();
     clearAll();
     setConfirming(false);

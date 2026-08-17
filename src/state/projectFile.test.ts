@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { defaultCard, defaultSheet, defaultTemplate } from "../core/template/defaults";
 import {
   PROJECT_FORMAT,
+  PROJECT_VERSION,
   buildProject,
   fromBase64,
   parseProject,
@@ -85,9 +86,31 @@ describe("parseProject", () => {
     expect(r.ok === false && r.reason).toMatch(/not a Plaque project/);
   });
 
-  it("rejects a project from another version rather than half-applying it", () => {
+  it("refuses a newer project by number, and changes nothing", () => {
     const r = parseProject(JSON.stringify({ ...project(), version: 99 }));
-    expect(r.ok === false && r.reason).toMatch(/different version/);
+    expect(r.ok).toBe(false);
+    // Both numbers named, so the user knows which way the mismatch runs.
+    expect(r.ok === false && r.reason).toMatch(/v99/);
+    expect(r.ok === false && r.reason).toMatch(new RegExp(`v${PROJECT_VERSION}`));
+    expect(r.ok === false && r.reason).toMatch(/newer version/);
+  });
+
+  it("refuses an older project it has no migration for, rather than guessing", () => {
+    // No migrations exist yet, so v0-style files are refused by name.
+    const r = parseProject(JSON.stringify({ ...project(), version: 0 }));
+    expect(r.ok).toBe(false);
+  });
+
+  it("refuses a file with no version at all", () => {
+    const { version: _v, ...noVersion } = project();
+    const r = parseProject(JSON.stringify(noVersion));
+    expect(r.ok === false && r.reason).toMatch(/which version/);
+  });
+
+  it("reports no migration notes for a current-format file", () => {
+    const r = parseProject(JSON.stringify(project()));
+    expect(r.ok && r.notes).toEqual([]);
+    expect(r.ok && r.fromVersion).toBe(PROJECT_VERSION);
   });
 
   it("rejects a project missing its design or guest list", () => {

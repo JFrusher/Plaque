@@ -1,0 +1,162 @@
+{
+  "format": "plaque-project",
+  "version": 1,
+  "savedAt": "2026-08-17T00:00:00.000Z",
+  "card": {
+    "widthMm": 85,
+    "heightMm": 55,
+    "fold": "none",
+    "foldPositionMm": 27.5,
+    "bleedMm": 0,
+    "invertBackPanel": true
+  },
+  "sheet": {
+    "page": "A4",
+    "orientation": "portrait",
+    "marginTopMm": 10,
+    "marginRightMm": 10,
+    "marginBottomMm": 10,
+    "marginLeftMm": 10,
+    "gapXMm": 5,
+    "gapYMm": 5,
+    "cardRotationDeg": 0,
+    "printerMarginMm": 5,
+    "cropMarks": true,
+    "cutLines": true,
+    "foldGuides": true,
+    "bleedGuides": true,
+    "duplex": false,
+    "slugLine": false
+  },
+  "template": {
+    "backgroundHex": null,
+    "rowScope": {
+      "kind": "per-row"
+    },
+    "elements": [
+      {
+        "kind": "text",
+        "id": "name",
+        "x": 8,
+        "y": 18,
+        "w": 69,
+        "h": 16,
+        "z": 0,
+        "template": "{{First Name}} {{Last Name}}",
+        "fontId": "crimson",
+        "fontSizePt": 22,
+        "align": "center",
+        "vAlign": "middle",
+        "lineHeight": 1.15,
+        "colorHex": "#171613",
+        "letterSpacingMm": 0,
+        "fit": {
+          "mode": "shrink",
+          "minFontSizePt": 11,
+          "maxLines": 2,
+          "anchor": "align"
+        },
+        "optical": {
+          "opticalAlign": true,
+          "hangingPunctuation": false,
+          "features": null
+        }
+      },
+      {
+        "kind": "text",
+        "id": "table",
+        "x": 8,
+        "y": 35,
+        "w": 69,
+        "h": 7,
+        "z": 1,
+        "template": "{{Table}}",
+        "fontId": "lato",
+        "fontSizePt": 9,
+        "align": "center",
+        "vAlign": "middle",
+        "lineHeight": 1.2,
+        "colorHex": "#6f6d68",
+        "letterSpacingMm": 0.4,
+        "fit": {
+          "mode": "shrink",
+          "minFontSizePt": 6,
+          "maxLines": 1,
+          "anchor": "align"
+        }
+      },
+      {
+        "kind": "icon",
+        "id": "dietary",
+        "x": 69,
+        "y": 39,
+        "w": 8,
+        "h": 8,
+        "z": 2,
+        "sourceField": "Dietary",
+        "rules": [],
+        "fallbackIconId": null,
+        "colorHex": "#46443f"
+      }
+    ]
+  },
+  "headers": [
+    "First Name",
+    "Last Name",
+    "Table",
+    "Dietary",
+    "Entree"
+  ],
+  "rows": [
+    {
+      "First Name": "Charis",
+      "Last Name": "Smith",
+      "Table": "Table 1",
+      "Dietary": "Vegetarian",
+      "Entree": "Risotto"
+    },
+    {
+      "First Name": "Alexander",
+      "Last Name": "Wright",
+      "Table": "Table 1",
+      "Dietary": "None",
+      "Entree": "Beef"
+    },
+    {
+      "First Name": "Eleanor",
+      "Last Name": "Vane",
+      "Table": "Table 2",
+      "Dietary": "Gluten-Free",
+      "Entree": "Chicken"
+    },
+    {
+      "First Name": "Tobias",
+      "Last Name": "Ashdown",
+      "Table": "Table 2",
+      "Dietary": "Vegan",
+      "Entree": "Aubergine"
+    },
+    {
+      "First Name": "Priya",
+      "Last Name": "Raghunathan",
+      "Table": "Table 3",
+      "Dietary": "Nut-Free",
+      "Entree": "Beef"
+    }
+  ],
+  "rowIds": [
+    "r0",
+    "r1",
+    "r2",
+    "r3",
+    "r4"
+  ],
+  "merged": {},
+  "csvIssues": [],
+  "fileName": "guests-5.csv",
+  "uploadedIcons": {},
+  "assetNames": {},
+  "snapEnabled": true,
+  "fonts": [],
+  "images": []
+}

@@ -12,7 +12,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b --noEmit",
-    "sample": "vite-node scripts/sample-pdf.ts"
+    "sample": "vite-node scripts/sample-pdf.ts",
+    "prebuild": "vite-node scripts/validate-data.ts",
+    "validate:data": "vite-node scripts/validate-data.ts",
+    "cli": "vite-node scripts/plaque.ts",
+    "postbuild": "vite-node scripts/offline-gate.ts",
+    "gate:offline": "vite-node scripts/offline-gate.ts"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

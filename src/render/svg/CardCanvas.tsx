@@ -13,7 +13,10 @@ import styles from "./CardCanvas.module.css";
 export interface CardCanvasProps {
   card: CardSpec;
   template: Template;
+  /** The row `{{Column}}` tokens bind to. */
   row: GuestRow;
+  /** Every row the artefact covers, for list elements. Defaults to just `row`. */
+  rows?: GuestRow[];
   fonts: Map<string, LoadedFont>;
   resolveOptions: ResolveOptions;
   selectedId: ElementId | null;
@@ -39,6 +42,7 @@ export function CardCanvas({
   card,
   template,
   row,
+  rows,
   fonts,
   resolveOptions,
   selectedId,
@@ -65,8 +69,10 @@ export function CardCanvas({
 
   const scene = useMemo(
     // Editing shows the card upright; inversion is an imposition concern.
-    () => resolveCard(template, row, { ...card, invertBackPanel: false }, resolveOptions).scene,
-    [template, row, card, resolveOptions],
+    () =>
+      resolveCard(template, row, { ...card, invertBackPanel: false }, resolveOptions, rows ?? [row])
+        .scene,
+    [template, row, rows, card, resolveOptions],
   );
 
   const snapTargets = useMemo(

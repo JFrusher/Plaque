@@ -40,6 +40,17 @@ export function GuidesPanel() {
       />
       <Hint>The bleed boundary is an on-screen aid. It is never drawn into the PDF.</Hint>
 
+      <CheckboxField
+        label="Slug line (PDF only)"
+        checked={sheet.slugLine}
+        onChange={(slugLine) => setSheet({ slugLine })}
+        hint="Prints sizes, fold, applied printer scale, card count, build hash and a 100mm rule along the foot of each sheet."
+      />
+      <Hint>
+        Turn the slug line on for a test print: if its 100mm rule does not measure 100mm, the printer
+        driver is scaling the page.
+      </Hint>
+
       <ColorField
         label="Card background"
         value={backgroundHex}

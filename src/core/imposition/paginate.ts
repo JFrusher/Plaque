@@ -2,11 +2,13 @@ import { cardGuides } from "../geometry/cropMarks";
 import { cardOriginOnSheet, computeLayout, type PageLayout } from "../geometry/pageLayout";
 import { cardToSheet } from "../geometry/transform";
 import { resolveCard, type CardWarning, type ResolveOptions } from "../template/bindings";
-import type { GuestRow } from "../csv/parse";
+import type { Artefact } from "../data/artefacts";
+import { templateForRow } from "../template/overrides";
 import type { CardSpec, ResolvedElement, Sheet, SheetGuides, SheetSpec, Template } from "../types";
 
 export interface GuestWarning extends CardWarning {
-  guestIndex: number;
+  /** Index into the artefact list, which for per-row scope is the row index. */
+  artefactIndex: number;
 }
 
 export interface PaginateResult {
@@ -25,43 +27,85 @@ export interface PaginateOptions {
   pages?: { from: number; to: number };
 }
 
+/** Sheets the whole job needs, without building any of them. */
+export function sheetCountFor(
+  artefactCount: number,
+  card: CardSpec,
+  sheet: SheetSpec,
+): number {
+  const perSheet = computeLayout(card, sheet).perSheet;
+  return perSheet === 0 || artefactCount === 0 ? 0 : Math.ceil(artefactCount / perSheet);
+}
+
+export interface ArtefactAnalysis {
+  warnings: GuestWarning[];
+  /**
+   * Typographic headroom per artefact, 0..1: 1 means everything printed at the
+   * size asked for, 0 means it overflowed even at the floor. This is the fit
+   * heatmap's data (D4), and it falls out of the pass that was already
+   * happening — spotting the six problem names in 2000 rows should not cost a
+   * second traversal.
+   */
+  headroom: number[];
+}
+
 /**
- * Lays every guest's card out across as many sheets as it takes.
+ * Warnings and fit headroom for every artefact, without imposing anything.
+ *
+ * Separated from `paginate` so the editor can show one sheet cheaply while the
+ * full "these names do not fit" pass runs at a lower priority.
+ */
+export function analyseArtefacts(
+  template: Template,
+  artefacts: Artefact[],
+  card: CardSpec,
+  opts: ResolveOptions,
+): ArtefactAnalysis {
+  const warnings: GuestWarning[] = [];
+  const headroom: number[] = [];
+
+  for (const [artefactIndex, artefact] of artefacts.entries()) {
+    const resolved = resolveCard(
+      templateForRow(template, artefact.rowId),
+      artefact.row,
+      card,
+      opts,
+      artefact.rows,
+    );
+    for (const w of resolved.warnings) warnings.push({ ...w, artefactIndex });
+    headroom.push(headroomOf(template, resolved.scene.elements));
+  }
+
+  return { warnings, headroom };
+}
+
+/**
+ * The tightest text on the card: fitted size over requested size, or 0 when it
+ * overflowed. One number per artefact is what makes a 2000-row strip readable.
+ */
+function headroomOf(template: Template, elements: ResolvedElement[]): number {
+  let tightest = 1;
+  for (const el of elements) {
+    if (el.kind !== "text") continue;
+    if (el.overflowed) return 0;
+    const source = template.elements.find((candidate) => candidate.id === el.id);
+    const requested =
+      source && (source.kind === "text" || source.kind === "list") ? source.fontSizePt : el.fontSizePt;
+    if (requested > 0) tightest = Math.min(tightest, el.fontSizePt / requested);
+  }
+  return tightest;
+}
+
+/**
+ * Lays every artefact out across as many sheets as it takes.
  *
  * This is where card-local coordinates become sheet coordinates. On-sheet card
  * rotation is folded into each element's own rotation here, so a renderer only
  * ever sees "a box at these millimetres, spun this far about its centre".
  */
-/** Sheets the whole list needs, without building any of them. */
-export function sheetCountFor(rowCount: number, card: CardSpec, sheet: SheetSpec): number {
-  const perSheet = computeLayout(card, sheet).perSheet;
-  return perSheet === 0 || rowCount === 0 ? 0 : Math.ceil(rowCount / perSheet);
-}
-
-/**
- * Warnings for every guest, without imposing anything.
- *
- * Separated from `paginate` so the editor can show one sheet cheaply while the
- * full "these names do not fit" pass runs at a lower priority.
- */
-export function collectWarnings(
-  template: Template,
-  rows: GuestRow[],
-  card: CardSpec,
-  opts: ResolveOptions,
-): GuestWarning[] {
-  const warnings: GuestWarning[] = [];
-  for (const [guestIndex, row] of rows.entries()) {
-    for (const w of resolveCard(template, row, card, opts).warnings) {
-      warnings.push({ ...w, guestIndex });
-    }
-  }
-  return warnings;
-}
-
 export function paginate(
   template: Template,
-  rows: GuestRow[],
+  artefacts: Artefact[],
   card: CardSpec,
   sheet: SheetSpec,
   opts: ResolveOptions,
@@ -71,12 +115,12 @@ export function paginate(
   const warnings: GuestWarning[] = [];
   const sheets: Sheet[] = [];
 
-  if (layout.perSheet === 0 || rows.length === 0) {
+  if (layout.perSheet === 0 || artefacts.length === 0) {
     return { sheets, layout, sheetCount: 0, warnings };
   }
 
   const cardSize = { w: card.widthMm, h: card.heightMm };
-  const pageCount = Math.ceil(rows.length / layout.perSheet);
+  const pageCount = Math.ceil(artefacts.length / layout.perSheet);
   const from = Math.max(0, options.pages?.from ?? 0);
   const to = Math.min(pageCount - 1, options.pages?.to ?? pageCount - 1);
 
@@ -85,13 +129,21 @@ export function paginate(
     const cards: Sheet["cards"] = [];
 
     for (let slot = 0; slot < layout.perSheet; slot++) {
-      const guestIndex = page * layout.perSheet + slot;
-      const row = rows[guestIndex];
-      if (!row) break;
+      const artefactIndex = page * layout.perSheet + slot;
+      const artefact = artefacts[artefactIndex];
+      if (!artefact) break;
 
       const origin = cardOriginOnSheet(slot, layout);
-      const resolved = resolveCard(template, row, card, opts);
-      for (const w of resolved.warnings) warnings.push({ ...w, guestIndex });
+      // Per-row overrides are applied here, once, so neither renderer nor the
+      // fitter needs to know they exist (D1).
+      const resolved = resolveCard(
+        templateForRow(template, artefact.rowId),
+        artefact.row,
+        card,
+        opts,
+        artefact.rows,
+      );
+      for (const w of resolved.warnings) warnings.push({ ...w, artefactIndex });
 
       const elements: ResolvedElement[] = resolved.scene.elements.map((el) => {
         const box = cardToSheet(
@@ -124,7 +176,7 @@ export function paginate(
       cards.push({
         origin,
         footprint: layout.footprint,
-        guestIndex,
+        artefactIndex,
         scene: { elements, backgroundHex: resolved.scene.backgroundHex },
       });
     }

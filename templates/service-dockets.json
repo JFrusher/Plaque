@@ -1,0 +1,71 @@
+{
+  "format": "plaque-template",
+  "version": 1,
+  "id": "service-dockets",
+  "name": "Service dockets \u2014 one per table",
+  "description": "One docket per table for the pass: every guest on that table with their dietary requirement. Grouped, so it fits a page however long the guest list is.",
+  "card": {
+    "widthMm": 105,
+    "heightMm": 148,
+    "fold": "none",
+    "foldPositionMm": 74,
+    "bleedMm": 0
+  },
+  "template": {
+    "backgroundHex": null,
+    "rowScope": {
+      "kind": "per-group",
+      "byColumn": "Table"
+    },
+    "elements": [
+      {
+        "kind": "text",
+        "id": "heading",
+        "x": 0,
+        "y": 4,
+        "w": 85,
+        "h": 10,
+        "z": 0,
+        "template": "{{Table}}",
+        "fontId": "lato",
+        "fontSizePt": 14,
+        "align": "left",
+        "vAlign": "middle",
+        "lineHeight": 1.2,
+        "colorHex": "#171613",
+        "letterSpacingMm": 0.3,
+        "fit": {
+          "mode": "shrink",
+          "minFontSizePt": 10,
+          "maxLines": 1,
+          "anchor": "align"
+        }
+      },
+      {
+        "kind": "list",
+        "id": "rows",
+        "x": 10,
+        "y": 24,
+        "w": 85,
+        "h": 112,
+        "z": 1,
+        "itemTemplate": "{{Table}}  \u00b7  {{First Name}} {{Last Name}}  \u00b7  {{Dietary}}",
+        "bullet": "",
+        "skipEmpty": true,
+        "fontId": "lato",
+        "fontSizePt": 11,
+        "align": "left",
+        "vAlign": "top",
+        "lineHeight": 1.35,
+        "colorHex": "#171613",
+        "letterSpacingMm": 0,
+        "fit": {
+          "mode": "shrink",
+          "minFontSizePt": 6,
+          "maxLines": 1,
+          "anchor": "align"
+        }
+      }
+    ]
+  }
+}

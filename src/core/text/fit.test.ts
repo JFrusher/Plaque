@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { FitConfig } from "../types";
-import { DEFAULT_FIT, fitText, type FitInput } from "./fit";
+import { DEFAULT_FIT, fitBlock, fitText, type FitInput } from "./fit";
 import { loadFont, measureWidth, widestLineMm } from "./measure";
 
 const crimson = loadFont(
@@ -183,5 +183,60 @@ describe("fitText", () => {
   it("gives the same answer every time it is asked", () => {
     const i = input({ text: "Marguerite Pemberton-Blythe", boxWMm: 50 });
     expect(fitText(crimson, i)).toEqual(fitText(crimson, i));
+  });
+});
+
+describe("fitBlock", () => {
+  const font = crimson;
+  const base = {
+    boxWMm: 60,
+    boxHMm: 40,
+    fontSizePt: 12,
+    lineHeight: 1.3,
+    letterSpacingMm: 0,
+    fit: { mode: "shrink" as const, minFontSizePt: 6, maxLines: 1, anchor: "align" as const },
+  };
+
+  it("leaves a block that already fits alone", () => {
+    const out = fitBlock(font, { ...base, lines: ["Charis Smith", "Tobias Ashdown"] });
+    expect(out.fontSizePt).toBe(12);
+    expect(out.overflowed).toBe(false);
+  });
+
+  it("shrinks until the whole stack fits the height", () => {
+    // Ten guests at 12pt is taller than 40mm; the block has to come down, and
+    // ten lines still fit comfortably once it has.
+    const lines = Array.from({ length: 10 }, (_, i) => `Guest ${i}`);
+    const out = fitBlock(font, { ...base, lines });
+    expect(out.fontSizePt).toBeLessThan(12);
+    expect(out.overflowed).toBe(false);
+  });
+
+  it("shrinks for a line that is too wide, not just for height", () => {
+    const out = fitBlock(font, { ...base, lines: ["A name far wider than sixty millimetres of box"] });
+    expect(out.fontSizePt).toBeLessThan(12);
+  });
+
+  it("never re-wraps: a wrapped menu line would read as two guests", () => {
+    const lines = ["Alexander Wright — Beef Wellington with dauphinoise"];
+    expect(fitBlock(font, { ...base, lines }).lines).toEqual(lines);
+  });
+
+  it("stops at the floor and reports overflow rather than going illegible", () => {
+    const lines = Array.from({ length: 200 }, (_, i) => `Guest ${i}`);
+    const out = fitBlock(font, { ...base, lines });
+    expect(out.fontSizePt).toBe(6);
+    expect(out.overflowed).toBe(true);
+  });
+
+  it("reports overflow without shrinking when told not to shrink", () => {
+    const lines = Array.from({ length: 50 }, (_, i) => `Guest ${i}`);
+    const out = fitBlock(font, { ...base, lines, fit: { ...base.fit, mode: "none" } });
+    expect(out.fontSizePt).toBe(12);
+    expect(out.overflowed).toBe(true);
+  });
+
+  it("handles an empty list without dividing by anything", () => {
+    expect(fitBlock(font, { ...base, lines: [] })).toMatchObject({ lines: [], overflowed: false });
   });
 });

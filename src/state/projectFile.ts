@@ -41,17 +41,32 @@ export interface ProjectFile {
   template: Template;
   headers: string[];
   rows: GuestRow[];
+  /** Row identity, so per-row overrides survive the trip to another machine. */
+  rowIds?: string[];
+  merged?: Record<string, { indexes: number[]; ids: string[]; rows: GuestRow[] }>;
   csvIssues: CsvIssue[];
   fileName: string | null;
   uploadedIcons: Record<string, string>;
+  assetNames?: Record<string, string>;
   snapEnabled: boolean;
   fonts: ProjectFontAsset[];
   images: ProjectImageAsset[];
 }
 
 export type ParsedProject =
-  | { ok: true; project: ProjectFile }
+  | { ok: true; project: ProjectFile; notes: string[]; fromVersion: number }
   | { ok: false; reason: string };
+
+/**
+ * One entry per historical version, keyed by the version it upgrades FROM.
+ * Each returns the note the user sees, so a migration can never happen
+ * silently — a file that changed shape without saying so is a file the user
+ * cannot trust years later (S-D1.3).
+ *
+ * Empty until the format first changes. A version with no entry is refused
+ * rather than guessed at.
+ */
+const MIGRATIONS: Record<number, (raw: Record<string, unknown>) => string> = {};
 
 export function buildProject(input: {
   card: CardSpec;
@@ -59,9 +74,12 @@ export function buildProject(input: {
   template: Template;
   headers: string[];
   rows: GuestRow[];
+  rowIds?: string[];
+  merged?: ProjectFile["merged"];
   csvIssues: CsvIssue[];
   fileName: string | null;
   uploadedIcons: Record<string, string>;
+  assetNames?: Record<string, string>;
   snapEnabled: boolean;
   fonts: StoredFont[];
   images: StoredImage[];
@@ -75,6 +93,9 @@ export function buildProject(input: {
     template: input.template,
     headers: input.headers,
     rows: input.rows,
+    rowIds: input.rowIds ?? input.rows.map((_, i) => `r${i}`),
+    merged: input.merged ?? {},
+    assetNames: input.assetNames ?? {},
     csvIssues: input.csvIssues,
     fileName: input.fileName,
     uploadedIcons: input.uploadedIcons,
@@ -111,12 +132,32 @@ export function parseProject(text: string): ParsedProject {
   if (parsed["format"] !== PROJECT_FORMAT) {
     return { ok: false, reason: "That file is not a Plaque project." };
   }
-  if (parsed["version"] !== PROJECT_VERSION) {
+
+  const version = parsed["version"];
+  if (typeof version !== "number" || !Number.isInteger(version) || version < 1) {
+    return { ok: false, reason: "That project file does not say which version it is." };
+  }
+  // Refuse a newer file by name and number, and change nothing. Guessing at a
+  // shape this build has never seen is how a project gets quietly corrupted.
+  if (version > PROJECT_VERSION) {
     return {
       ok: false,
-      reason: `That project was saved by a different version of Plaque (v${String(parsed["version"])}).`,
+      reason: `That project was saved by a newer version of Plaque (project format v${version}; this build reads v${PROJECT_VERSION}). Nothing has been changed — update Plaque to open it.`,
     };
   }
+
+  const notes: string[] = [];
+  for (let at = version; at < PROJECT_VERSION; at++) {
+    const step = MIGRATIONS[at];
+    if (!step) {
+      return {
+        ok: false,
+        reason: `That project is in format v${version} and this build cannot upgrade it to v${PROJECT_VERSION}.`,
+      };
+    }
+    notes.push(step(parsed));
+  }
+
   if (!isRecord(parsed["card"]) || !isRecord(parsed["sheet"]) || !isRecord(parsed["template"])) {
     return { ok: false, reason: "That project file is incomplete." };
   }
@@ -128,10 +169,16 @@ export function parseProject(text: string): ParsedProject {
   }
 
   const project = parsed as unknown as ProjectFile;
+  project.version = PROJECT_VERSION;
   project.fonts = Array.isArray(project.fonts) ? project.fonts : [];
   project.images = Array.isArray(project.images) ? project.images : [];
   project.uploadedIcons = isRecord(project.uploadedIcons) ? project.uploadedIcons : {};
-  return { ok: true, project };
+  project.assetNames = isRecord(project.assetNames) ? project.assetNames : {};
+  project.rowIds = Array.isArray(project.rowIds)
+    ? project.rowIds
+    : project.rows.map((_, i) => `r${i}`);
+  project.merged = isRecord(project.merged) ? project.merged : {};
+  return { ok: true, project, notes, fromVersion: version };
 }
 
 export function projectFileName(fileName: string | null): string {

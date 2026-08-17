@@ -1,0 +1,64 @@
+/* Visible to a screen reader, never to the eye. */
+.live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 0.35);
+}
+
+.sheet {
+  width: min(420px, 90vw);
+  padding: var(--sp-4);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.25);
+  font-size: var(--text-xs);
+}
+
+.title {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--text-lg);
+}
+
+.list {
+  display: grid;
+  gap: var(--sp-1);
+  margin: 0 0 var(--sp-3);
+}
+
+.list > div {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: var(--sp-2);
+}
+
+.list dt {
+  font-weight: 600;
+}
+
+.list dd {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.close {
+  padding: 4px var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}

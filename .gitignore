@@ -11,3 +11,9 @@ sample-*.pdf
 .playwright-mcp/
 phase*.png
 tsconfig.tsbuildinfo
+
+scratch/
+
+# PDFs built by the CLI land next to their input or at the repo root.
+/*.pdf
+fixtures/*.pdf

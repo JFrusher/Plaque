@@ -1,6 +1,7 @@
 import type { HAlign, Mm, Point, Pt, ShrinkAnchor, VAlign } from "../types";
 import { ptToMm } from "../units";
 import { blockHeightMm, lineHeightMm, measureWidth, type LoadedFont } from "./measure";
+import { DEFAULT_OPTICAL, hangMm, opticalShiftMm, type OpticalConfig } from "./optical";
 
 export interface LaidOutLine {
   text: string;
@@ -25,6 +26,8 @@ export interface TextBlock {
   letterSpacingMm: Mm;
   w: Mm;
   h: Mm;
+  /** Optical centring, hanging punctuation and feature control (E1). */
+  optical?: OpticalConfig;
 }
 
 /**
@@ -61,14 +64,28 @@ export function layoutLines(font: LoadedFont, block: TextBlock): LaidOutLine[] {
   // thing, which is why one control covers the common case.
   const blockX = place(block.anchor === "align" ? block.align : block.anchor, block.w, blockW);
 
-  return block.lines.map((text, i) => ({
-    text,
-    widthMm: widths[i]!,
-    baseline: {
-      x: blockX + place(block.align, blockW, widths[i]!),
-      y: top + ascentMm + i * step,
-    },
-  }));
+  const optical = block.optical ?? DEFAULT_OPTICAL;
+
+  return block.lines.map((text, i) => {
+    let x = blockX + place(block.align, blockW, widths[i]!);
+
+    // Optical centring, then hanging punctuation — in that order, because the
+    // hang is measured from the edge the line has just been placed against.
+    if (optical.opticalAlign && block.align === "center") {
+      x += opticalShiftMm(font, text, block.fontSizePt, optical.features);
+    }
+    if (optical.hangingPunctuation) {
+      const hang = hangMm(font, text, block.fontSizePt, optical.features);
+      if (block.align === "left" || block.align === "center") x -= hang.left;
+      if (block.align === "right") x += hang.right;
+    }
+
+    return {
+      text,
+      widthMm: widths[i]!,
+      baseline: { x, y: top + ascentMm + i * step },
+    };
+  });
 }
 
 /** Offset of an inner width inside an outer one, for a given alignment. */

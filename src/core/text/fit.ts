@@ -72,6 +72,54 @@ export function fitText(font: LoadedFont, input: FitInput): FitOutcome {
   return { lines: atFloor.lines, fontSizePt: round(floor), overflowed: !atFloor.fits };
 }
 
+export interface FitBlockInput {
+  lines: string[];
+  boxWMm: Mm;
+  boxHMm: Mm;
+  fontSizePt: Pt;
+  lineHeight: number;
+  letterSpacingMm: Mm;
+  fit: FitConfig;
+}
+
+/**
+ * Decides the size for a block of lines that are already broken — a list
+ * element, where each row of the artefact is one line (discovery §1).
+ *
+ * Same rule as `fitText` and deliberately in the same file: font size is decided
+ * here, from fontkit metrics, and nowhere else. A list that sized itself in the
+ * renderer would break the one invariant that keeps the preview and the print
+ * agreeing.
+ *
+ * Lines are never re-wrapped: a menu line that wrapped would read as two guests.
+ * It shrinks until the widest line fits and the stack fits, then reports
+ * overflow at the floor rather than shrinking into illegibility.
+ */
+export function fitBlock(font: LoadedFont, input: FitBlockInput): FitOutcome {
+  if (input.lines.length === 0) {
+    return { lines: [], fontSizePt: input.fontSizePt, overflowed: false };
+  }
+
+  const floor = Math.min(input.fit.minFontSizePt, input.fontSizePt);
+  const shrinks = input.fit.mode !== "none";
+
+  const fits = (sizePt: Pt): boolean =>
+    widestLineMm(font, input.lines, sizePt, input.letterSpacingMm) <= input.boxWMm &&
+    blockHeightMm(input.lines.length, sizePt, input.lineHeight) <= input.boxHMm;
+
+  if (fits(input.fontSizePt)) {
+    return { lines: input.lines, fontSizePt: input.fontSizePt, overflowed: false };
+  }
+  if (!shrinks) {
+    return { lines: input.lines, fontSizePt: input.fontSizePt, overflowed: true };
+  }
+
+  for (let size = input.fontSizePt - STEP_PT; size >= floor; size -= STEP_PT) {
+    if (fits(size)) return { lines: input.lines, fontSizePt: round(size), overflowed: false };
+  }
+  return { lines: input.lines, fontSizePt: round(floor), overflowed: !fits(floor) };
+}
+
 function round(pt: Pt): Pt {
   return Math.round(pt * 100) / 100;
 }

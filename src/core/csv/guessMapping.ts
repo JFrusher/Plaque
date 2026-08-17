@@ -16,11 +16,16 @@ type Field = keyof FieldGuesses;
 
 /** Checked in order; the first header that matches a pattern wins that field. */
 const PATTERNS: Array<[Field, RegExp]> = [
-  ["firstName", /^(first|firstname|forename|givenname|given)$/],
-  ["lastName", /^(last|lastname|surname|familyname|family)$/],
+  // The optional "guest" prefix covers the RSVP exports that label every column
+  // with whose they are: "Guest First", "Guest Surname" (S-I.1).
+  ["firstName", /^(guest)?(first|firstname|forename|givenname|given)$/],
+  ["lastName", /^(guest)?(last|lastname|surname|familyname|family)$/],
   ["fullName", /^(name|fullname|guest|guestname|displayname)$/],
-  ["table", /^(table|tableno|tablenumber|tablename|seating|seat)$/],
-  ["dietary", /^(dietary|diet|dietaryrequirements|dietaryrequirement|requirements|allergies|allergy|restrictions)$/],
+  ["table", /^(table|tbl|tableno|tablenum|tablenumber|tablename|seating|seat)$/],
+  [
+    "dietary",
+    /^(dietary|diet|dietaryneeds|dietaryrequirements|dietaryrequirement|requirements|allergies|allergy|allergens|restrictions)$/,
+  ],
   ["entree", /^(entree|entr[ée]e|main|maincourse|meal|mealchoice|course|food)$/],
 ];
 

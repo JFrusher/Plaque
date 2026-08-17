@@ -3,6 +3,9 @@ import { useShallow } from "zustand/react/shallow";
 import { defaultFoldPosition } from "../../core/geometry/fold";
 import { computeLayout } from "../../core/geometry/pageLayout";
 import { suggestLayouts } from "../../core/geometry/suggestLayouts";
+import { STOCK_PRESETS, applyPreset } from "../../core/data/stockPresets";
+import { CARD_PRESETS, applyCardPreset } from "../../core/data/cardPresets";
+import { GALLERY } from "../../core/data/gallery";
 import type { FoldAxis, Orientation, PageSizeName } from "../../core/types";
 import { usePlaque } from "../../state/store";
 import { CheckboxField, Hint, NumberField, Panel, Row, SelectField } from "../controls";
@@ -10,13 +13,14 @@ import styles from "./GeometryPanel.module.css";
 
 /** FR-STA-02. Any card size, any fold, plus layouts that maximise cards per sheet. */
 export function GeometryPanel() {
-  const { card, sheet, setCard, setSheet, applySuggestion } = usePlaque(
+  const { card, sheet, setCard, setSheet, applySuggestion, applyGalleryTemplate } = usePlaque(
     useShallow((s) => ({
       card: s.card,
       sheet: s.sheet,
       setCard: s.setCard,
       setSheet: s.setSheet,
       applySuggestion: s.applySuggestion,
+      applyGalleryTemplate: s.applyGalleryTemplate,
     })),
   );
 
@@ -30,6 +34,37 @@ export function GeometryPanel() {
   return (
     <>
       <Panel title="Card">
+        <SelectField
+          label="Start from a design"
+          value=""
+          options={[
+            { value: "", label: "Keep the current design" },
+            ...GALLERY.map((t) => ({ value: t.id, label: t.name })),
+          ]}
+          onChange={(id) => {
+            const entry = GALLERY.find((t) => t.id === id);
+            if (entry) applyGalleryTemplate(entry);
+          }}
+        />
+        <Hint>
+          Replaces the design and the card size, then re-attaches every token to your own columns.
+          Undo puts it back.
+        </Hint>
+
+        <SelectField
+          label="What are you making?"
+          value=""
+          options={[
+            { value: "", label: "Custom size" },
+            ...CARD_PRESETS.map((p) => ({ value: p.id, label: p.name })),
+          ]}
+          onChange={(id) => {
+            const preset = CARD_PRESETS.find((p) => p.id === id);
+            if (preset) setCard(applyCardPreset(preset));
+          }}
+        />
+        <Hint>Presets set the size and the fold. Everything stays editable afterwards.</Hint>
+
         <Row>
           <NumberField
             label="Width"
@@ -110,6 +145,27 @@ export function GeometryPanel() {
       </Panel>
 
       <Panel title="Sheet">
+        <SelectField
+          label="Pre-cut stock"
+          value=""
+          options={[
+            { value: "", label: "None — plain sheets, cut them yourself" },
+            ...STOCK_PRESETS.map((p) => ({ value: p.id, label: p.name })),
+          ]}
+          onChange={(id) => {
+            const preset = STOCK_PRESETS.find((p) => p.id === id);
+            if (!preset) return;
+            const applied = applyPreset(preset);
+            setCard(applied.card);
+            setSheet(applied.sheet);
+          }}
+        />
+        <Hint>
+          A preset sets the card size and the grid, and turns crop marks off — the cutting already
+          happened. Prove it with "Two test cards" on plain paper held against the real sheet before
+          feeding stock you paid for.
+        </Hint>
+
         {suggestions.length > 0 && (
           <div className={styles.suggestions}>
             <span className={styles.suggestionsLabel}>Fits best</span>

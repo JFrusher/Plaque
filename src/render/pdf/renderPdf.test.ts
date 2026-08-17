@@ -3,6 +3,7 @@ import zlib from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { BUNDLED_FONTS } from "../../assets/fonts";
 import { parseCsv } from "../../core/csv/parse";
+import { buildArtefacts } from "../../core/data/artefacts";
 import { paginate } from "../../core/imposition/paginate";
 import { loadFont, type LoadedFont } from "../../core/text/measure";
 import { defaultCard, defaultSheet, defaultTemplate } from "../../core/template/defaults";
@@ -26,7 +27,8 @@ const resolveOptions = makeResolveOptions(fonts);
 
 function build(csvPath: string, card: CardSpec, sheet: SheetSpec, template?: Template) {
   const { headers, rows } = parseCsv(readFileSync(csvPath, "utf8"));
-  return paginate(template ?? defaultTemplate(headers, card), rows, card, sheet, resolveOptions);
+  const artefacts = buildArtefacts(rows, { kind: "per-row" }, headers);
+  return paginate(template ?? defaultTemplate(headers, card), artefacts, card, sheet, resolveOptions);
 }
 
 /** Inflates every FlateDecode stream so the drawing operators can be inspected. */
@@ -90,7 +92,7 @@ describe("renderPdf — 150 guests, 8 up on A4", () => {
   it("puts the first eight guests on page one as real, extractable text", async () => {
     const { bytes } = await renderPdf({ sheets, fonts });
     const text = await extractText(bytes, 1);
-    expect(sheets[0]!.cards.map((c) => c.guestIndex)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(sheets[0]!.cards.map((c) => c.artefactIndex)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
 
     const rows = parseCsv(readFileSync("fixtures/guests-150.csv", "utf8")).rows;
     for (const row of rows.slice(0, 8)) {
@@ -262,6 +264,115 @@ describe("renderPdf — drawing", () => {
     await expect(renderPdf({ sheets, fonts })).resolves.toBeDefined();
   });
 });
+
+describe("printer calibration (S-D2.1)", () => {
+  const card = defaultCard();
+
+  it("changes nothing without a calibrated printer", async () => {
+    const { sheets } = build("fixtures/guests-5.csv", card, defaultSheet());
+    const plain = await renderPdf({ sheets, fonts });
+    const explicit = await renderPdf({ sheets, fonts, scale: 1 });
+    expect(streamOps(explicit)).toEqual(streamOps(plain));
+  });
+
+  it("scales the page CONTENT and leaves the paper size alone", async () => {
+    // A driver printing 2% small is cancelled by drawing 2% large. The sheet is
+    // still A4 — it is the driver's scaling being undone, not the paper.
+    const { sheets } = build("fixtures/guests-5.csv", card, defaultSheet());
+    const { bytes } = await renderPdf({ sheets, fonts, scale: 1.02 });
+    const { task, doc } = await openPdf(bytes);
+    const view = (await doc.getPage(1)).view;
+    await task.destroy();
+    expect(view[2]).toBeCloseTo(mmToPt(210), 1);
+    expect(view[3]).toBeCloseTo(mmToPt(297), 1);
+
+    // Same guests, bigger type: the text is drawn at a scaled size.
+    const plain = contentStreams((await renderPdf({ sheets, fonts })).bytes).join("\n");
+    const scaled = contentStreams(bytes).join("\n");
+    expect(sizesIn(scaled)[0]).toBeCloseTo(sizesIn(plain)[0]! * 1.02, 2);
+    expect(await extractText(bytes, 1)).toContain("Charis Smith");
+  });
+
+  it("ignores a scale that would distort the print", async () => {
+    const { sheets } = build("fixtures/guests-5.csv", card, defaultSheet());
+    const plain = streamOps(await renderPdf({ sheets, fonts }));
+    for (const bad of [0, -1, Number.NaN]) {
+      expect(streamOps(await renderPdf({ sheets, fonts, scale: bad }))).toEqual(plain);
+    }
+  });
+});
+
+describe("slug line (A8)", () => {
+  const card = defaultCard();
+
+  it("prints nothing extra when it is off", async () => {
+    const { sheets } = build("fixtures/guests-5.csv", card, defaultSheet());
+    expect(await extractText((await renderPdf({ sheets, fonts })).bytes, 1)).not.toContain("Plaque ·");
+  });
+
+  it("prints the provenance line and its rule on the sheet", async () => {
+    const { sheets } = build("fixtures/guests-5.csv", card, defaultSheet());
+    const { bytes } = await renderPdf({
+      sheets,
+      fonts,
+      slug: { ruleMm: 100, texts: sheets.map((s) => `Plaque · build cafe0000 · sheet ${s.index + 1}`) },
+    });
+    const text = await extractText(bytes, 1);
+    expect(text).toContain("Plaque · build cafe0000 · sheet 1");
+    // The printed rule is what catches a scaling driver on paper.
+    expect(text).toContain("100mm");
+  });
+
+  it("survives a printer correction rather than being pushed off the sheet", async () => {
+    // The slug sits outside the calibration transform: its rule is the probe for
+    // the DRIVER's scaling, and a scaled strip 6mm from the edge would be shifted
+    // clean off the page by a few percent of correction.
+    const { sheets } = build("fixtures/guests-5.csv", card, defaultSheet());
+    const { bytes } = await renderPdf({
+      sheets,
+      fonts,
+      scale: 1.05,
+      slug: { ruleMm: 100, texts: ["Plaque · slug"] },
+    });
+    const text = await extractText(bytes, 1);
+    expect(text).toContain("Plaque · slug");
+    expect(text).toContain("100mm reference");
+  });
+});
+
+/**
+ * Just the drawing operators, with embedded font names blanked.
+ *
+ * Both parts matter: pdf-lib tags each font subset with a fresh id, and that id
+ * is written into the font program itself — so comparing whole inflated streams
+ * compares random bytes and fails at random.
+ */
+function streamOps(result: { bytes: Uint8Array }): string {
+  return contentStreams(result.bytes)
+    .filter(isTextual)
+    .join("\n")
+    .split(/\r?\n/)
+    .filter((line) => /\b(Tm|Tf|Tj|re|cm|[ml]|S|f)\s*$/.test(line))
+    .join("\n")
+    .replace(/\/[\w-]+-\d+ /g, "/FONT ");
+}
+
+/**
+ * Content streams only. `contentStreams` inflates every stream in the file,
+ * including the embedded font programs — whose bytes shift with each subset tag
+ * and, decoded as latin1, throw up lines that look exactly like drawing
+ * operators. Comparing those compares randomness.
+ */
+function isTextual(stream: string): boolean {
+  if (stream.length === 0) return false;
+  const printable = stream.replace(/[^\x20-\x7e\r\n\t]/g, "").length;
+  return printable / stream.length > 0.95;
+}
+
+/** Every `<size> Tf` in drawing order. */
+function sizesIn(ops: string): number[] {
+  return [...ops.matchAll(/\/[^\s]+ ([\d.]+) Tf/g)].map((m) => Number.parseFloat(m[1]!));
+}
 
 describe("hexToRgb", () => {
   it("reads six-digit and three-digit hex", () => {

@@ -40,6 +40,7 @@ function renderBody(el: ResolvedElement, fonts: Map<string, LoadedFont>) {
         letterSpacingMm: el.letterSpacingMm,
         w: el.w,
         h: el.h,
+        ...(el.optical ? { optical: el.optical } : {}),
       });
       return (
         <text
@@ -69,6 +70,30 @@ function renderBody(el: ResolvedElement, fonts: Map<string, LoadedFont>) {
     }
 
     case "image": {
+      // A named placeholder, never a blank space: the user has to be able to see
+      // which file went missing without hunting for it (S-D1.4).
+      if (el.missingName) {
+        return (
+          <g>
+            <rect
+              x={el.x}
+              y={el.y}
+              width={el.w}
+              height={el.h}
+              fill="none"
+              stroke="#b3261e"
+              strokeWidth={0.3}
+              strokeDasharray="1.5 1.5"
+            />
+            {/* Left-aligned, and deliberately not text-anchored: handing any
+                placement to the browser is the invariant this file must not
+                break, even for an error label. */}
+            <text x={el.x + 1} y={el.y + el.h / 2} fill="#b3261e" fontSize={Math.min(3, el.h / 3)}>
+              {el.missingName} missing
+            </text>
+          </g>
+        );
+      }
       if (!el.image) return null;
       // `contain` uses the same fitter the icons use, so an image and an icon
       // in identical boxes land in identical places.

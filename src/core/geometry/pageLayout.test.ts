@@ -27,6 +27,8 @@ const sheet = (over: Partial<SheetSpec> = {}): SheetSpec => ({
   cutLines: true,
   foldGuides: true,
   bleedGuides: true,
+  duplex: false,
+  slugLine: false,
   ...over,
 });
 

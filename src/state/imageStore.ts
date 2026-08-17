@@ -1,5 +1,6 @@
 import { del, get, set } from "idb-keyval";
 import type { ResolvedImageSource } from "../core/types";
+import { assetId } from "./assetId";
 
 /**
  * Uploaded images.
@@ -60,7 +61,9 @@ export async function readImageFile(file: File): Promise<StoredImage> {
   const data = new Uint8Array(await file.arrayBuffer());
   const { width, height } = await measureImage(file);
   return {
-    id: `img:${file.name}:${data.byteLength}`,
+    // Content-addressed, so the same artwork twice is one entry and a relink can
+    // be verified against the bytes rather than the filename.
+    id: await assetId("img", data),
     name: file.name,
     mime: file.type as StoredImage["mime"],
     data,

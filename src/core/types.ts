@@ -72,6 +72,17 @@ export interface SheetSpec {
   foldGuides: boolean;
   /** Screen only. Never drawn into the PDF. */
   bleedGuides: boolean;
+  /**
+   * Print the back of each card on the reverse of the sheet. The flip edge is a
+   * property of the printer, not the design — see PrinterProfile.
+   */
+  duplex: boolean;
+  /**
+   * PDF only. A strip along the foot of each sheet naming sizes, fold, applied
+   * printer scale, card count and build hash, with a printed rule — so a
+   * misconfigured print explains itself on paper (A8).
+   */
+  slugLine: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -104,6 +115,12 @@ export interface FitConfig {
   anchor: ShrinkAnchor;
 }
 
+/**
+ * Which side of the sheet an element prints on. Absent means front — every
+ * design written before duplex existed is a front-only design.
+ */
+export type CardSide = "front" | "back";
+
 export interface ElementBase {
   id: ElementId;
   /** Card-local, top-left origin. Which fold panel it belongs to is derived, never stored. */
@@ -112,6 +129,16 @@ export interface ElementBase {
   w: Mm;
   h: Mm;
   z: number;
+  /** Front unless stated. See `sideOf`. */
+  side?: CardSide;
+}
+
+/** Optical typography, per element. See core/text/optical. */
+export interface OpticalSpec {
+  opticalAlign: boolean;
+  hangingPunctuation: boolean;
+  /** `null` keeps the font's defaults. Otherwise the exact feature list to apply. */
+  features: string[] | null;
 }
 
 export interface TextElement extends ElementBase {
@@ -127,6 +154,7 @@ export interface TextElement extends ElementBase {
   colorHex: Hex;
   letterSpacingMm: Mm;
   fit: FitConfig;
+  optical?: OpticalSpec;
 }
 
 export interface IconRule {
@@ -172,16 +200,91 @@ export interface ImageElement extends ElementBase {
   opacity: number;
 }
 
+/**
+ * One line per row of the artefact — the menu, the run-sheet, the seating list.
+ *
+ * The second half of the row-scope unlock (discovery §1). It resolves into an
+ * ordinary resolved TEXT element whose lines happen to have come from many rows,
+ * so neither renderer needed a single line of new code to draw one.
+ *
+ * Fit applies to the whole block rather than to a line: shrink until every line
+ * fits the width AND the stack fits the height.
+ */
+export interface ListElement extends ElementBase {
+  kind: "list";
+  /** Per-row template, e.g. `"{{First Name}} — {{Meal}}"`. */
+  itemTemplate: string;
+  /** Printed before each line. Empty for none. */
+  bullet: string;
+  /** Rows whose line comes out empty are dropped rather than printed as a gap. */
+  skipEmpty: boolean;
+  fontId: string;
+  fontSizePt: Pt;
+  align: HAlign;
+  vAlign: VAlign;
+  lineHeight: number;
+  colorHex: Hex;
+  letterSpacingMm: Mm;
+  fit: FitConfig;
+  optical?: OpticalSpec;
+}
+
 export type CardElement =
   | TextElement
   | IconElement
   | RectElement
   | LineElement
-  | ImageElement;
+  | ImageElement
+  | ListElement;
+
+/**
+ * Any field of any element kind, except the two that establish identity.
+ *
+ * `Partial<CardElement>` will not do: it is a union of partials, so it rejects a
+ * patch that names a field only some members have. This maps over the union's
+ * keys instead, giving each one the type it has on the members that declare it.
+ */
+type PatchableKey = Exclude<
+  | keyof TextElement
+  | keyof IconElement
+  | keyof RectElement
+  | keyof LineElement
+  | keyof ImageElement
+  | keyof ListElement,
+  "kind" | "id"
+>;
+
+type FieldValue<K extends PropertyKey> =
+  Extract<CardElement, Record<K, unknown>> extends infer E
+    ? E extends Record<K, infer V>
+      ? V
+      : never
+    : never;
+
+export type ElementPatch = { [K in PatchableKey]?: FieldValue<K> };
+
+/**
+ * How many CSV rows one printed artefact consumes. Discovery §1.
+ *
+ * `per-row` is a place card, a badge, a gift tag. `per-group` is a table number
+ * or a table menu. `document` is a kitchen run-sheet or a seating list. Absent
+ * means per-row, which is what every design written before this existed meant.
+ */
+export type RowScope =
+  | { kind: "per-row" }
+  | { kind: "per-group"; byColumn: string }
+  | { kind: "document" };
 
 export interface Template {
   elements: CardElement[];
   backgroundHex: Hex | null;
+  rowScope?: RowScope;
+  /**
+   * Sparse per-row design patches, by row id then element id. See
+   * core/template/overrides — design, not data, so it lives here and travels in
+   * the project file.
+   */
+  overrides?: Record<string, Record<ElementId, ElementPatch>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -219,6 +322,8 @@ export interface ResolvedText extends ResolvedBase {
   letterSpacingMm: Mm;
   /** True when the fit floor was hit and the text still does not fit. */
   overflowed: boolean;
+  /** Carried through so both renderers lay the line out identically. */
+  optical?: OpticalSpec;
 }
 
 export interface ResolvedIcon extends ResolvedBase {
@@ -251,11 +356,15 @@ export interface ResolvedLine extends ResolvedBase {
 
 export interface ResolvedImage extends ResolvedBase {
   kind: "image";
-  /**
-   * Everything a renderer needs to draw it. `null` when the image is missing —
-   * the element then draws nothing rather than a broken placeholder.
-   */
+  /** Everything a renderer needs to draw it. `null` when there is nothing to draw. */
   image: ResolvedImageSource | null;
+  /**
+   * The filename of an image the design references but this device does not
+   * have; `null` when nothing is wrong. The screen draws a named placeholder
+   * from it, and export is blocked — a silently blank card is the failure this
+   * field exists to prevent (S-D1.4).
+   */
+  missingName: string | null;
   fit: ImageFit;
   opacity: number;
 }
@@ -289,7 +398,8 @@ export interface PlacedCard {
   origin: Point;
   /** Footprint after any on-sheet rotation. */
   footprint: Size;
-  guestIndex: number;
+  /** Which artefact this slot holds — one guest, one table, or the whole list. */
+  artefactIndex: number;
   scene: CardScene;
 }
 

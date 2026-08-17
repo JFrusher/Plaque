@@ -30,9 +30,21 @@ card, lay out a sheet, and print it at the right size.
 npm install
 npm run dev        # http://localhost:5173
 npm run test       # vitest, including the PDF smoke test
-npm run build      # static output in dist/
+npm run build      # static output in dist/, with both build gates
 npm run sample     # writes sample-flat.pdf and sample-tent.pdf from the fixtures
+npm run cli -- build fixtures/job.plaque.json -o out.pdf   # headless, same core
 ```
+
+`npm run build` will not produce a bundle if either gate fails:
+
+- **Data gate** (`npm run validate:data`) — a contributed preset with a bad
+  field, or two presets with the same id, stops the build and names the file and
+  the field.
+- **Offline gate** (`npm run gate:offline`) — the built bundle is scanned for any
+  host it could talk to, and for `fetch`, `WebSocket`, `sendBeacon`,
+  `XMLHttpRequest` or `EventSource`. A guest list leaving the device is the one
+  bug this project cannot ship, so it is checked mechanically rather than
+  promised in a comment.
 
 `dist/` is a plain static bundle. It runs from any host, or straight off the
 filesystem.
@@ -49,10 +61,14 @@ template ─┘                                                 └─> pdf-lib 
 ```
 
 - `src/core/` — pure TypeScript. No React, no DOM. All the geometry, text
-  fitting, CSV and imposition logic, and nearly all the tests.
+  fitting, CSV and imposition logic, and nearly all the tests. `core/job.ts` is
+  the whole pipeline in one function, which is why the browser and the CLI cannot
+  drift apart.
 - `src/render/` — the two renderers. Read-only consumers of `core/`.
-- `src/state/` — zustand store, undo history, localStorage and IndexedDB.
+- `src/state/` — zustand store, undo history and IndexedDB.
 - `src/ui/` — the sidebar panels and app chrome.
+- `src/data/` — contributed data packs as JSON: card sizes, pre-cut stock.
+- `templates/` — the starter gallery. Every file here is also a test fixture.
 
 Three rules hold the design together:
 
@@ -62,6 +78,22 @@ Three rules hold the design together:
 3. Font size and line breaks are decided once, in `src/core/text/fit.ts`, from
    fontkit metrics — never from the browser's own text layout. That is what
    stops the preview and the printed sheet from disagreeing.
+
+These are enforced, not just documented: `src/invariants.test.ts` fails the
+build if a second file flips the y axis, if anything but `core/text/measure`
+imports fontkit, if a renderer decides a size, or if `core/` reaches for React
+or the DOM.
+
+## Extending it
+
+Nothing below needs a change to the engine:
+
+| To add | Edit | Checked by |
+|---|---|---|
+| A card size or product | `src/data/card-presets.json` | data gate + `cardPresets.test.ts` |
+| Pre-cut stock (label sheets, badge inserts) | `src/data/stock-presets.json` | data gate + `stockPresets.test.ts` |
+| A starter design | a new file in `templates/` | `gallery.test.ts` builds it against the fixtures |
+| An element kind | `src/core/template/registry.ts`, plus the two renderer switches | TypeScript exhaustiveness + `registry.test.ts` |
 
 Full design spec:
 [docs/superpowers/specs/2026-08-17-plaque-design.md](docs/superpowers/specs/2026-08-17-plaque-design.md)

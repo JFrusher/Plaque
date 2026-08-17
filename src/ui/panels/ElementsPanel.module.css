@@ -95,3 +95,38 @@
   font-size: var(--text-xs);
   color: var(--text-muted);
 }
+
+.sides {
+  display: grid;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-2);
+}
+
+.sideToggle {
+  display: flex;
+  gap: 0;
+}
+
+.sideButton {
+  flex: 1;
+  padding: 4px var(--sp-2);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.sideButton:first-child {
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.sideButton:last-child {
+  border-radius: 0 var(--radius) var(--radius) 0;
+  border-left: 0;
+}
+
+.sideActive {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  font-weight: 600;
+}

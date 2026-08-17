@@ -63,6 +63,13 @@
   cursor: pointer;
 }
 
+.notice .noticeAction {
+  margin-left: 0;
+  font: inherit;
+  color: var(--grey-8);
+  text-decoration: underline;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

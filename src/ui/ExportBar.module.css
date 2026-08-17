@@ -28,6 +28,26 @@
   cursor: default;
 }
 
+/* Never buried in an options dialog: the point of a test print is that reaching
+   for it is cheaper than reaching for a fresh sheet of card. */
+.secondary {
+  padding: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.secondary:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.secondary:disabled {
+  color: var(--grey-5);
+  cursor: default;
+}
+
 .meta {
   font-size: var(--text-xs);
   color: var(--text-muted);

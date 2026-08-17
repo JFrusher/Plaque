@@ -1,0 +1,53 @@
+{
+  "$comment": "Pre-cut stock: the cutting already happened at the factory, so crop marks and cut lines are suppressed when one of these is applied. Geometry is stated as the label grid itself — columns x rows, size and gaps — and the margins follow from it, which is how these can be checked by arithmetic rather than trusted. Always prove a preset with the two-test-cards print on plain paper before feeding real stock.",
+  "presets": [
+    {
+      "id": "avery-l7160",
+      "name": "Avery L7160 — 21 labels, 63.5 × 38.1mm",
+      "page": "A4",
+      "orientation": "portrait",
+      "widthMm": 63.5,
+      "heightMm": 38.1,
+      "columns": 3,
+      "rows": 7,
+      "gapXMm": 2.5,
+      "gapYMm": 0
+    },
+    {
+      "id": "avery-l7159",
+      "name": "Avery L7159 — 24 labels, 63.5 × 33.9mm",
+      "page": "A4",
+      "orientation": "portrait",
+      "widthMm": 63.5,
+      "heightMm": 33.9,
+      "columns": 3,
+      "rows": 8,
+      "gapXMm": 2.5,
+      "gapYMm": 0
+    },
+    {
+      "id": "avery-l7651",
+      "name": "Avery L7651 — 65 labels, 38.1 × 21.2mm",
+      "page": "A4",
+      "orientation": "portrait",
+      "widthMm": 38.1,
+      "heightMm": 21.2,
+      "columns": 5,
+      "rows": 13,
+      "gapXMm": 2.5,
+      "gapYMm": 0
+    },
+    {
+      "id": "badge-insert-90x54",
+      "name": "Badge inserts — 10 per A4, 90 × 54mm",
+      "page": "A4",
+      "orientation": "portrait",
+      "widthMm": 90,
+      "heightMm": 54,
+      "columns": 2,
+      "rows": 5,
+      "gapXMm": 0,
+      "gapYMm": 0
+    }
+  ]
+}

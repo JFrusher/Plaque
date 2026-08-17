@@ -1,5 +1,15 @@
-import { PDFDocument, degrees, rgb, type PDFImage, type PDFPage, type RGB } from "pdf-lib";
+import {
+  PDFDocument,
+  StandardFonts,
+  degrees,
+  rgb,
+  type PDFImage,
+  type PDFPage,
+  type RGB,
+} from "pdf-lib";
 import { HAIRLINE_PT } from "../../core/geometry/cropMarks";
+import { effectiveScale } from "../../core/print/printerProfile";
+import { scaleSheetContent } from "../../core/print/scaleSheet";
 import { centreOf, rotatePoint } from "../../core/geometry/transform";
 import { fitIcon } from "../../core/template/iconFit";
 import { layoutLines } from "../../core/text/layout";
@@ -14,6 +24,26 @@ export interface RenderPdfOptions {
   /** Keyed by fontId. Every text element's font must be present. */
   fonts: Map<string, LoadedFont>;
   title?: string;
+  /**
+   * Printer calibration factor (S-D2.1). Applied to the page CONTENT about the
+   * page centre, never to the page size: the paper is still A4, it is the
+   * driver's scaling that is being cancelled out.
+   */
+  scale?: number;
+  /**
+   * Optional per-sheet slug strip (A8). One string per sheet, in the same order,
+   * plus a printed rule of `ruleMm` so a scaling driver is caught on paper.
+   * Composed by the caller from core/print/slug — this file only draws it.
+   */
+  slug?: { texts: string[]; ruleMm: number };
+  /**
+   * Pin the document dates so the same job produces byte-identical output (F4).
+   *
+   * Used by the CLI and by the regression test that byte-diffs against a
+   * fixture: without it every build differs in its timestamps and a real change
+   * would be invisible among them.
+   */
+  deterministic?: boolean;
 }
 
 export interface RenderPdfResult {
@@ -34,10 +64,18 @@ function makeToPdf(pageHeightMm: Mm) {
 }
 
 export async function renderPdf(opts: RenderPdfOptions): Promise<RenderPdfResult> {
+  const scale = effectiveScale(opts.scale);
   const doc = await PDFDocument.create();
   doc.setTitle(opts.title ?? "Place cards");
   doc.setProducer("Plaque");
   doc.setCreator("Plaque");
+  if (opts.deterministic) {
+    // The epoch, not "now": two builds of one job must differ only where the
+    // job differs.
+    const fixed = new Date(0);
+    doc.setCreationDate(fixed);
+    doc.setModificationDate(fixed);
+  }
 
   // Only the faces actually drawn. Embedding every loaded font put six
   // subsetted faces into a document that used one.
@@ -45,8 +83,14 @@ export async function renderPdf(opts: RenderPdfOptions): Promise<RenderPdfResult
   const needed = [...opts.fonts.values()].filter((font) => used.has(font.id));
   const { fonts: embedded, notSubset } = await embedFonts(doc, needed);
   const images = await embedImages(doc, opts.sheets);
+  // A standard face: carries no bytes into the file, and stays legible even when
+  // a font problem is what the slug is there to report.
+  const slugFont = opts.slug ? await doc.embedFont(StandardFonts.Helvetica) : null;
 
-  for (const sheet of opts.sheets) {
+  for (const unscaled of opts.sheets) {
+    // Printer calibration is a pure transform of the imposed sheet — see
+    // core/print/scaleSheet. Nothing below knows it happened.
+    const sheet = scaleSheetContent(unscaled, scale);
     const page = doc.addPage([mmToPt(sheet.pageWidthMm), mmToPt(sheet.pageHeightMm)]);
     const toPdf = makeToPdf(sheet.pageHeightMm);
 
@@ -77,10 +121,81 @@ export async function renderPdf(opts: RenderPdfOptions): Promise<RenderPdfResult
       drawSegment(page, seg, hairline, guideColor, [3, 3], toPdf);
     }
     // guides.bleedBoxes is deliberately not drawn — it is a screen-only aid.
+
+    // The slug is drawn from the UNSCALED page, and so is exempt from the
+    // calibration on purpose. Its rule is the probe for the printer driver's
+    // scaling: printed at true size, a rule that does not measure 100mm on
+    // paper convicts the driver. Scaling it would also push a strip 6mm from
+    // the edge clean off the sheet at a few percent of correction.
+    if (opts.slug) {
+      drawSlug(page, sheet, opts.slug.texts[sheet.index] ?? "", opts.slug.ruleMm, slugFont, toPdf);
+    }
   }
 
   const bytes = await doc.save();
   return { bytes, pageCount: opts.sheets.length, notSubset };
+}
+
+/** Slug height from the bottom edge; the strip sits inside it. */
+const SLUG_INSET_MM = 6;
+const SLUG_TEXT_PT = 5.5;
+
+/**
+ * The strip along the foot of the sheet: one line of provenance and a printed
+ * rule. It is drawn inside the calibrated content, on purpose — measuring the
+ * rule on paper then tests the FINAL output, correction included, which is the
+ * only thing worth testing.
+ */
+function drawSlug(
+  page: PDFPage,
+  sheet: Sheet,
+  text: string,
+  ruleMm: Mm,
+  font: import("pdf-lib").PDFFont | null,
+  toPdf: (p: Point) => { x: number; y: number },
+): void {
+  if (!font) return;
+  const ink = rgb(0.4, 0.4, 0.4);
+  const baseline = toPdf({ x: SLUG_INSET_MM, y: sheet.pageHeightMm - SLUG_INSET_MM });
+  page.drawText(text, { x: baseline.x, y: baseline.y, size: SLUG_TEXT_PT, font, color: ink });
+
+  // The rule sits above the text, clear of the paper edge. If it does not
+  // measure ruleMm on the paper, the driver scaled the page — see the note at
+  // the call site for why this is drawn outside the calibration transform.
+  const ruleY = sheet.pageHeightMm - SLUG_INSET_MM - 2.5;
+  const width = Math.min(ruleMm, sheet.pageWidthMm - SLUG_INSET_MM * 2);
+  drawSegment(
+    page,
+    [
+      { x: SLUG_INSET_MM, y: ruleY },
+      { x: SLUG_INSET_MM + width, y: ruleY },
+    ],
+    HAIRLINE_PT,
+    ink,
+    null,
+    toPdf,
+  );
+  for (let mm = 0; mm <= width; mm += 10) {
+    drawSegment(
+      page,
+      [
+        { x: SLUG_INSET_MM + mm, y: ruleY },
+        { x: SLUG_INSET_MM + mm, y: ruleY - (mm % 50 === 0 ? 2 : 1) },
+      ],
+      HAIRLINE_PT,
+      ink,
+      null,
+      toPdf,
+    );
+  }
+  const labelAt = toPdf({ x: SLUG_INSET_MM + width + 2, y: ruleY });
+  page.drawText(`${width}mm reference — measure it`, {
+    x: labelAt.x,
+    y: labelAt.y,
+    size: SLUG_TEXT_PT,
+    font,
+    color: ink,
+  });
 }
 
 function drawElement(
@@ -109,6 +224,7 @@ function drawElement(
         letterSpacingMm: el.letterSpacingMm,
         w: el.w,
         h: el.h,
+        ...(el.optical ? { optical: el.optical } : {}),
       });
 
       const centre = centreOf(box);

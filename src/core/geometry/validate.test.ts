@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CardSpec, SheetSpec } from "../types";
-import { hasErrors, validateGeometry } from "./validate";
+import { hasErrors, validateGeometry, type ValidateContext } from "./validate";
 
 const card = (over: Partial<CardSpec> = {}): CardSpec => ({
   widthMm: 85,
@@ -27,10 +27,13 @@ const sheet = (over: Partial<SheetSpec> = {}): SheetSpec => ({
   cutLines: true,
   foldGuides: true,
   bleedGuides: true,
+  duplex: false,
+  slugLine: false,
   ...over,
 });
 
-const ids = (c: CardSpec, s: SheetSpec) => validateGeometry(c, s).map((i) => i.id);
+const ids = (c: CardSpec, s: SheetSpec, printer?: ValidateContext) =>
+  validateGeometry(c, s, printer).map((i) => i.id);
 
 describe("validateGeometry", () => {
   it("says nothing about a sane setup", () => {
@@ -91,5 +94,58 @@ describe("validateGeometry", () => {
 
   it("separates errors from warnings", () => {
     expect(hasErrors(validateGeometry(card({ bleedMm: 3 }), sheet()))).toBe(false);
+  });
+});
+
+describe("validateGeometry — a measured printer (B4)", () => {
+  const wide = sheet({
+    marginTopMm: 8,
+    marginRightMm: 8,
+    marginBottomMm: 8,
+    marginLeftMm: 8,
+    printerMarginMm: 5,
+  });
+
+  it("uses the measured border rather than the advisory guess", () => {
+    // 8mm margins clear a 5mm guess, but not a printer measured at 12mm.
+    expect(ids(card(), wide)).not.toContain("printer-margin");
+    expect(ids(card(), wide, { unprintableMarginMm: 12 })).toContain("printer-margin");
+  });
+
+  it("names the printer, so the warning is about a real machine", () => {
+    const issues = validateGeometry(card(), wide, {
+      printerName: "Kitchen inkjet",
+      unprintableMarginMm: 12,
+    });
+    expect(issues.find((i) => i.id === "printer-margin")?.message).toContain("Kitchen inkjet");
+  });
+
+  it("ignores a half-written measurement instead of trusting it", () => {
+    expect(ids(card(), wide, { unprintableMarginMm: Number.NaN })).not.toContain("printer-margin");
+    expect(ids(card(), wide, { unprintableMarginMm: null })).not.toContain("printer-margin");
+  });
+
+  it("warns when a fold guide lands where the printer cannot draw", () => {
+    // A fold 6mm down the card, on a sheet with a 4mm top margin, is 10mm from
+    // the paper edge — inside a 12mm unprintable border.
+    const folded = card({ fold: "horizontal", foldPositionMm: 6, heightMm: 55 });
+    const tight = sheet({ marginTopMm: 4, foldGuides: true });
+    expect(ids(folded, tight, { unprintableMarginMm: 12 })).toContain("fold-guide-clipped");
+    expect(ids(folded, tight, { unprintableMarginMm: 2 })).not.toContain("fold-guide-clipped");
+  });
+
+  it("says nothing about fold guides that are switched off", () => {
+    const folded = card({ fold: "horizontal", foldPositionMm: 6 });
+    expect(
+      ids(folded, sheet({ marginTopMm: 4, foldGuides: false }), { unprintableMarginMm: 12 }),
+    ).not.toContain("fold-guide-clipped");
+  });
+
+  it("warns when the printer will trim the bleed before the user does", () => {
+    const bled = card({ bleedMm: 3 });
+    expect(ids(bled, sheet({ marginTopMm: 4, marginLeftMm: 4 }), { unprintableMarginMm: 6 })).toContain(
+      "bleed-clipped",
+    );
+    expect(ids(bled, wide, { unprintableMarginMm: 2 })).not.toContain("bleed-clipped");
   });
 });

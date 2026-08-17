@@ -1,14 +1,10 @@
 import { useRef, useState } from "react";
-import { loadFonts, saveFont } from "../state/blobStore";
+import { saveFont } from "../state/blobStore";
 import { registerFont } from "../state/fontLoader";
-import { loadImages, saveImage, toSource } from "../state/imageStore";
-import {
-  PROJECT_EXTENSION,
-  buildProject,
-  fromBase64,
-  parseProject,
-  projectFileName,
-} from "../state/projectFile";
+import { saveImage, toSource } from "../state/imageStore";
+import { retainPreMigration } from "../state/persist";
+import { PROJECT_EXTENSION, fromBase64, parseProject } from "../state/projectFile";
+import { saveProjectFile } from "../state/saveProjectFile";
 import { usePlaque } from "../state/store";
 import styles from "./ProjectButtons.module.css";
 
@@ -23,33 +19,13 @@ export function ProjectButtons() {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   async function save() {
     setBusy(true);
     setError(null);
     try {
-      const s = usePlaque.getState();
-      const project = buildProject({
-        card: s.card,
-        sheet: s.sheet,
-        template: s.template,
-        headers: s.headers,
-        rows: s.rows,
-        csvIssues: s.csvIssues,
-        fileName: s.fileName,
-        uploadedIcons: s.uploadedIcons,
-        snapEnabled: s.snapEnabled,
-        fonts: await loadFonts(),
-        images: await loadImages(),
-      });
-      const url = URL.createObjectURL(
-        new Blob([JSON.stringify(project, null, 2)], { type: "application/json" }),
-      );
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = projectFileName(s.fileName);
-      link.click();
-      URL.revokeObjectURL(url);
+      await saveProjectFile();
     } catch (e) {
       setError(e instanceof Error ? e.message : "The project could not be saved.");
     } finally {
@@ -62,22 +38,35 @@ export function ProjectButtons() {
     if (!file) return;
     setBusy(true);
     try {
-      const parsed = parseProject(await file.text());
+      const text = await file.text();
+      const parsed = parseProject(text);
       if (!parsed.ok) {
         setError(parsed.reason);
         return;
       }
-      const { project } = parsed;
+      const { project, notes, fromVersion } = parsed;
       const s = usePlaque.getState();
+
+      // Migrated: keep the file exactly as it arrived until the user saves a
+      // new one, and say what changed rather than changing it quietly.
+      if (notes.length > 0) {
+        await retainPreMigration({ fileName: file.name, fromVersion, text });
+        setNote(
+          `"${file.name}" was made by an older Plaque and has been updated: ${notes.join("; ")}. The original file is kept on this device until you next save a project.`,
+        );
+      }
 
       // Assets first, so the design never renders against a font it cannot find.
       for (const font of project.fonts) {
         const data = fromBase64(font.data);
         try {
-          s.addFont(await registerFont(font.id, font.family, data), font.family);
+          s.addFont(await registerFont(font.id, font.family, data), font.family, font.name);
           await saveFont({ id: font.id, family: font.family, fileName: font.name, data });
         } catch {
-          setError(`"${font.name}" could not be loaded; its text will use a bundled font.`);
+          // Named anyway, so the missing-asset report can say which file to
+          // find rather than printing a content hash at the user.
+          s.noteAssetName(font.id, font.name);
+          setError(`"${font.name}" could not be loaded — relink it below or the export stays blocked.`);
         }
       }
       for (const image of project.images) {
@@ -99,6 +88,9 @@ export function ProjectButtons() {
         template: project.template,
         headers: project.headers,
         rows: project.rows,
+        rowIds: project.rowIds ?? project.rows.map((_, i) => `r${i}`),
+        merged: project.merged ?? {},
+        assetNames: { ...s.assetNames, ...(project.assetNames ?? {}) },
         csvIssues: project.csvIssues,
         fileName: project.fileName,
         uploadedIcons: project.uploadedIcons,
@@ -143,6 +135,14 @@ export function ProjectButtons() {
         <span className={styles.error} role="alert">
           {error}
         </span>
+      )}
+      {note && (
+        <output className={styles.note}>
+          {note}
+          <button type="button" className={styles.dismiss} onClick={() => setNote(null)}>
+            OK
+          </button>
+        </output>
       )}
     </span>
   );

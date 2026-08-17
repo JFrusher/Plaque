@@ -19,7 +19,22 @@ export interface Issue {
  * will produce something, but probably not what was wanted. Nothing here
  * blocks — the user is allowed to override every one of these.
  */
-export function validateGeometry(card: CardSpec, sheet: SheetSpec): Issue[] {
+/**
+ * `printer` carries what the user has actually measured about their machine
+ * (B4). When present its unprintable border replaces the advisory default on the
+ * sheet, because a measured margin beats a guess — and its name goes in the
+ * message so the warning is about a real printer rather than printers in general.
+ */
+export interface ValidateContext {
+  printerName?: string;
+  unprintableMarginMm?: number | null;
+}
+
+export function validateGeometry(
+  card: CardSpec,
+  sheet: SheetSpec,
+  printer: ValidateContext = {},
+): Issue[] {
   const issues: Issue[] = [];
   const page = pageSizeMm(sheet.page, sheet.orientation);
   const usable = usableSize(sheet);
@@ -86,11 +101,44 @@ export function validateGeometry(card: CardSpec, sheet: SheetSpec): Issue[] {
     sheet.marginBottomMm,
     sheet.marginLeftMm,
   );
-  if (minMargin < sheet.printerMarginMm) {
+  const measured =
+    typeof printer.unprintableMarginMm === "number" && Number.isFinite(printer.unprintableMarginMm)
+      ? printer.unprintableMarginMm
+      : null;
+  const unprintable = Math.max(sheet.printerMarginMm, measured ?? 0);
+  if (minMargin < unprintable) {
+    const whose =
+      measured !== null && measured >= sheet.printerMarginMm
+        ? `${printer.printerName ?? "your printer"} cannot reach`
+        : "your printer probably cannot reach";
     issues.push({
       id: "printer-margin",
       severity: "warning",
-      message: `A margin of ${fmt(minMargin)}mm is inside the ${fmt(sheet.printerMarginMm)}mm your printer probably cannot reach. Content there may be clipped.`,
+      message: `A margin of ${fmt(minMargin)}mm is inside the ${fmt(unprintable)}mm ${whose}. Content there may be clipped.`,
+    });
+  }
+
+  // The fold guide is the one mark whose position the user cannot fudge after
+  // printing: fold on a clipped guide and every card is folded in the wrong place.
+  if (sheet.foldGuides && card.fold !== "none" && layout.perSheet > 0) {
+    const foldFromEdge =
+      card.fold === "horizontal"
+        ? Math.min(sheet.marginTopMm + card.foldPositionMm, sheet.marginBottomMm + (card.heightMm - card.foldPositionMm))
+        : Math.min(sheet.marginLeftMm + card.foldPositionMm, sheet.marginRightMm + (card.widthMm - card.foldPositionMm));
+    if (foldFromEdge < unprintable) {
+      issues.push({
+        id: "fold-guide-clipped",
+        severity: "warning",
+        message: `A fold guide sits ${fmt(foldFromEdge)}mm from the paper edge, inside the ${fmt(unprintable)}mm this printer cannot reach. It will not print, and a fold guessed by eye is a card folded in the wrong place.`,
+      });
+    }
+  }
+
+  if (card.bleedMm > 0 && minMargin < card.bleedMm + unprintable) {
+    issues.push({
+      id: "bleed-clipped",
+      severity: "warning",
+      message: `${fmt(card.bleedMm)}mm of bleed plus a ${fmt(unprintable)}mm unprintable border needs ${fmt(card.bleedMm + unprintable)}mm of margin. The bleed on the outer cards will be cut short by the printer, not by you.`,
     });
   }
 

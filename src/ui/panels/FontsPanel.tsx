@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { BUNDLED_FONTS } from "../../assets/fonts";
+import { assetId } from "../../state/assetId";
 import { deleteFont, saveFont } from "../../state/blobStore";
 import { registerFont } from "../../state/fontLoader";
 import { usePlaque } from "../../state/store";
@@ -41,7 +42,8 @@ export function FontsPanel() {
     setBusy(true);
     try {
       const data = new Uint8Array(await file.arrayBuffer());
-      const id = `user:${file.name}`;
+      // Content-addressed for the same reasons as images — see state/assetId.
+      const id = await assetId("user", data);
       const family = file.name.replace(ACCEPTED, "");
       const loaded = await registerFont(id, family, data);
       addFont(loaded, family);

@@ -1,0 +1,64 @@
+{
+  "format": "plaque-template",
+  "version": 1,
+  "id": "table-menu",
+  "name": "Table menu — one per table",
+  "description": "Groups the guest list by table and lists that table's guests and their choices.",
+  "card": { "widthMm": 105, "heightMm": 210, "fold": "none", "foldPositionMm": 105, "bleedMm": 0 },
+  "template": {
+    "backgroundHex": null,
+    "rowScope": { "kind": "per-group", "byColumn": "Table" },
+    "elements": [
+      {
+        "kind": "text",
+        "id": "heading",
+        "x": 10,
+        "y": 14,
+        "w": 85,
+        "h": 14,
+        "z": 0,
+        "template": "{{Table}}",
+        "fontId": "marcellus",
+        "fontSizePt": 20,
+        "align": "center",
+        "vAlign": "middle",
+        "lineHeight": 1.2,
+        "colorHex": "#171613",
+        "letterSpacingMm": 0.2,
+        "fit": { "mode": "shrink", "minFontSizePt": 12, "maxLines": 1, "anchor": "align" }
+      },
+      {
+        "kind": "line",
+        "id": "rule",
+        "x": 30,
+        "y": 31,
+        "w": 45,
+        "h": 1,
+        "z": 1,
+        "strokeHex": "#a9a49a",
+        "strokeWidthMm": 0.3,
+        "dashed": false
+      },
+      {
+        "kind": "list",
+        "id": "guests",
+        "x": 12,
+        "y": 40,
+        "w": 81,
+        "h": 155,
+        "z": 2,
+        "itemTemplate": "{{First Name}} {{Last Name}} — {{Dietary}}",
+        "bullet": "",
+        "skipEmpty": true,
+        "fontId": "crimson",
+        "fontSizePt": 12,
+        "align": "left",
+        "vAlign": "top",
+        "lineHeight": 1.45,
+        "colorHex": "#171613",
+        "letterSpacingMm": 0,
+        "fit": { "mode": "shrink", "minFontSizePt": 7, "maxLines": 1, "anchor": "align" }
+      }
+    ]
+  }
+}

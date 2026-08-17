@@ -36,7 +36,7 @@ export function SheetPreview({ sheet, fonts, className }: SheetPreviewProps) {
         vectorEffect="non-scaling-stroke"
       />
       {sheet.cards.map((card) => (
-        <g key={card.guestIndex}>
+        <g key={card.artefactIndex}>
           {card.scene.backgroundHex && (
             <rect
               x={card.origin.x}

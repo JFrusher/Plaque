@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CardSpec, SheetSpec, Template, TextElement } from "../types";
 import { noFit } from "../template/bindings";
+import { buildArtefacts } from "../data/artefacts";
 import { paginate } from "./paginate";
 
 const card = (over: Partial<CardSpec> = {}): CardSpec => ({
@@ -28,6 +29,8 @@ const sheet = (over: Partial<SheetSpec> = {}): SheetSpec => ({
   cutLines: true,
   foldGuides: true,
   bleedGuides: true,
+  duplex: false,
+  slugLine: false,
   ...over,
 });
 
@@ -52,8 +55,13 @@ const nameEl: TextElement = {
 
 const template: Template = { elements: [nameEl], backgroundHex: null };
 const opts = { fitText: noFit, iconPath: () => null };
+/** n place cards: per-row scope, which is what a guest list has always meant. */
 const guests = (n: number) =>
-  Array.from({ length: n }, (_, i) => ({ "First Name": `G${i}`, "Last Name": "X" }));
+  buildArtefacts(
+    Array.from({ length: n }, (_, i) => ({ "First Name": `G${i}`, "Last Name": "X" })),
+    { kind: "per-row" },
+    ["First Name", "Last Name"],
+  );
 
 describe("paginate", () => {
   it("fills 8 cards a sheet and rolls onto the next", () => {
@@ -70,7 +78,7 @@ describe("paginate", () => {
 
   it("numbers guests continuously across sheets", () => {
     const { sheets } = paginate(template, guests(20), card(), sheet(), opts);
-    expect(sheets.flatMap((s) => s.cards.map((c) => c.guestIndex))).toEqual(
+    expect(sheets.flatMap((s) => s.cards.map((c) => c.artefactIndex))).toEqual(
       Array.from({ length: 20 }, (_, i) => i),
     );
   });
@@ -142,7 +150,7 @@ describe("paginate", () => {
       sheet(),
       opts,
     );
-    expect(warnings.filter((w) => w.kind === "missing-field").map((w) => w.guestIndex)).toEqual([
+    expect(warnings.filter((w) => w.kind === "missing-field").map((w) => w.artefactIndex)).toEqual([
       0, 1, 2,
     ]);
   });

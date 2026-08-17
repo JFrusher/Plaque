@@ -1,0 +1,49 @@
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: var(--text-xs);
+  border-bottom: 1px solid var(--danger);
+}
+
+.headline {
+  font-weight: 600;
+}
+
+.reason {
+  color: var(--grey-8);
+}
+
+.button,
+.primary,
+.danger {
+  padding: 4px var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.primary {
+  border-color: var(--danger);
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.danger {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.button:hover,
+.primary:hover,
+.danger:hover {
+  border-color: var(--border-strong);
+}

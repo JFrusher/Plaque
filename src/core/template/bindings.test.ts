@@ -158,3 +158,65 @@ describe("resolveCard", () => {
     expect(elements.map((e) => e.id)).toEqual(["a", "b"]);
   });
 });
+
+describe("missing assets", () => {
+  const imageEl = {
+    kind: "image" as const,
+    id: "m1",
+    x: 0,
+    y: 0,
+    w: 20,
+    h: 20,
+    z: 0,
+    imageId: "img:sha256-deadbeef",
+    fit: "contain" as const,
+    opacity: 1,
+  };
+
+  it("names a missing image by the file it came from, not by its hash", () => {
+    const { scene, warnings } = resolveCard(
+      { elements: [imageEl], backgroundHex: null },
+      row,
+      card(),
+      { ...opts, assetName: () => "crest.png" },
+    );
+    expect(warnings).toEqual([
+      { elementId: "m1", kind: "missing-image", detail: '"crest.png" is not on this device.' },
+    ]);
+    // The renderer needs the name too — a blank box tells the user nothing.
+    expect(scene.elements[0]).toMatchObject({ kind: "image", missingName: "crest.png" });
+  });
+
+  it("falls back to the id when the filename was never recorded", () => {
+    const { warnings } = resolveCard({ elements: [imageEl], backgroundHex: null }, row, card(), opts);
+    expect(warnings[0]?.detail).toContain("img:sha256-deadbeef");
+  });
+
+  it("says nothing about an image element with nothing chosen yet", () => {
+    const { scene, warnings } = resolveCard(
+      { elements: [{ ...imageEl, imageId: null }], backgroundHex: null },
+      row,
+      card(),
+      opts,
+    );
+    expect(warnings).toEqual([]);
+    expect(scene.elements[0]).toMatchObject({ missingName: null });
+  });
+
+  it("warns when text was sized without the face, which breaks preview/print agreement", () => {
+    const noMetrics: FitTextFn = (el, t) => ({
+      lines: [t],
+      fontSizePt: el.fontSizePt,
+      overflowed: false,
+      missingFont: true,
+    });
+    const { warnings } = resolveCard({ elements: [text()], backgroundHex: null }, row, card(), {
+      ...opts,
+      fitText: noMetrics,
+      assetName: () => "Bespoke.ttf",
+    });
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ kind: "missing-font", elementId: "t1" });
+    expect(warnings[0]?.detail).toContain("Bespoke.ttf");
+  });
+});

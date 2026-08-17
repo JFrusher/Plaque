@@ -26,7 +26,15 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test
+      # `build` runs the data-pack gate before it and the offline gate after it,
+      # so a malformed contributed preset or a bundle that could reach the
+      # network fails here rather than shipping.
       - run: npm run build
+      # The headless build over the same core: proves the CLI entry point still
+      # works, and that one job produces byte-identical PDFs.
+      - run: npm run cli -- build fixtures/job.plaque.json -o /tmp/ci-once.pdf
+      - run: npm run cli -- build fixtures/job.plaque.json -o /tmp/ci-twice.pdf
+      - run: cmp /tmp/ci-once.pdf /tmp/ci-twice.pdf
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:

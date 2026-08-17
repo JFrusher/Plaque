@@ -1,18 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { defaultCard, defaultSheet, defaultTemplate } from "../core/template/defaults";
-import { load, type Persisted } from "./persist";
+import type { Snapshot } from "./history";
+import { load, saveFailureReason, type Persisted } from "./persist";
 
-const good = (over: Partial<Persisted> = {}): Persisted => ({
-  version: 1,
+const design = (): Snapshot => ({
   card: defaultCard(),
   sheet: defaultSheet(),
   template: defaultTemplate(["First Name", "Last Name"]),
+});
+
+const good = (over: Partial<Persisted> = {}): Persisted => ({
+  version: 2,
+  savedAt: "2026-08-17T13:42:00.000Z",
+  ...design(),
   headers: ["First Name", "Last Name"],
   rows: [{ "First Name": "Charis", "Last Name": "Smith" }],
+  rowIds: ["r0"],
+  merged: {},
   csvIssues: [],
   fileName: "guests.csv",
   uploadedIcons: {},
+  assetNames: {},
   snapEnabled: true,
+  past: [],
+  future: [],
   ...over,
 });
 
@@ -26,6 +37,7 @@ describe("load", () => {
     const result = load(JSON.stringify(good()));
     expect(result.status).toBe("ok");
     expect(result.status === "ok" && result.data.rows).toHaveLength(1);
+    expect(result.status === "ok" && result.data.savedAt).toBe("2026-08-17T13:42:00.000Z");
   });
 
   it("discards unparseable JSON instead of throwing", () => {
@@ -79,5 +91,54 @@ describe("load", () => {
     expect(load("[]")).toMatchObject({ status: "discarded" });
     expect(load("42")).toMatchObject({ status: "discarded" });
     expect(load("null")).toMatchObject({ status: "discarded" });
+  });
+
+  it("preserves undo depth across a reload", () => {
+    const past = [design(), design(), design()];
+    const result = load(JSON.stringify(good({ past, future: [design()] })));
+    expect(result.status === "ok" && result.data.past).toHaveLength(3);
+    expect(result.status === "ok" && result.data.future).toHaveLength(1);
+  });
+
+  it("drops an unusable history entry but keeps the design", () => {
+    // Undo depth is a papercut to lose. The work is not.
+    const past = [design(), { ...design(), card: { ...defaultCard(), widthMm: Number.NaN } }];
+    const result = load(JSON.stringify(good({ past })));
+    expect(result.status).toBe("ok");
+    expect(result.status === "ok" && result.data.past).toHaveLength(1);
+  });
+
+  it("gives rows positional ids when the save predates them", () => {
+    // Overrides keyed by those same positional ids still land after an upgrade.
+    const { rowIds: _rowIds, ...older } = good();
+    const result = load(JSON.stringify(older));
+    expect(result.status === "ok" && result.data.rowIds).toEqual(["r0"]);
+  });
+
+  it("upgrades a v1 save, which had no history and no timestamp", () => {
+    const { savedAt: _savedAt, past: _past, future: _future, ...v1 } = good({ version: 1 });
+    const result = load(JSON.stringify({ ...v1, version: 1 }));
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.data.version).toBe(2);
+    expect(result.data.savedAt).toBeNull();
+    expect(result.data.past).toEqual([]);
+    expect(result.data.rows).toHaveLength(1);
+  });
+});
+
+describe("saveFailureReason", () => {
+  it("separates a full browser from a blocked one, because the remedy differs", () => {
+    expect(saveFailureReason(new DOMException("nope", "QuotaExceededError"))).toMatch(/no room/);
+    expect(saveFailureReason(new DOMException("nope", "SecurityError"))).toMatch(/private window/);
+  });
+
+  it("always produces something a user can read", () => {
+    expect(saveFailureReason(new Error("Internal error opening backing store"))).toBe(
+      "Internal error opening backing store",
+    );
+    expect(saveFailureReason(new Error(""))).toMatch(/refused to save/);
+    expect(saveFailureReason("weird")).toMatch(/refused to save/);
+    expect(saveFailureReason(undefined)).toMatch(/refused to save/);
   });
 });

@@ -1,9 +1,15 @@
+import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { buildArtefacts } from "../../core/data/artefacts";
+import { templateForRow, type ElementPatch } from "../../core/template/overrides";
+import { DEFAULT_OPTICAL, NOTABLE_FEATURES, availableFeatures } from "../../core/text/optical";
+import type { LoadedFont } from "../../core/text/measure";
 import type {
   CardElement,
   FitMode,
   HAlign,
   ImageFit,
+  ListElement,
   ShrinkAnchor,
   TextElement,
   VAlign,
@@ -19,6 +25,7 @@ import {
   SelectField,
   TextField,
 } from "../controls";
+import styles from "./InspectorPanel.module.css";
 
 /**
  * Properties of the selected element.
@@ -28,15 +35,39 @@ import {
  * something to a tenth of a millimetre.
  */
 export function InspectorPanel() {
-  const { element, headers, fonts, fontLabels, updateElement } = usePlaque(
-    useShallow((s) => ({
-      element: s.template.elements.find((el) => el.id === s.selectedId),
-      headers: s.headers,
-      fonts: s.fonts,
-      fontLabels: s.fontLabels,
-      updateElement: s.updateElement,
-    })),
+  const {
+    element,
+    headers,
+    fonts,
+    fontLabels,
+    updateElement,
+    overrideForRow,
+    template,
+    rowId,
+    rowLabel,
+  } = usePlaque(
+    useShallow((s) => {
+      const scope = s.template.rowScope ?? { kind: "per-row" as const };
+      const artefacts = buildArtefacts(s.rows, scope, s.headers, s.rowIds);
+      const artefact = artefacts[s.previewGuestIndex] ?? artefacts[0] ?? null;
+      return {
+        // The effective element: what this artefact actually prints, so the
+        // numbers in the panel are the numbers on the card.
+        element: templateForRow(s.template, artefact?.rowId ?? "").elements.find(
+          (el) => el.id === s.selectedId,
+        ),
+        headers: s.headers,
+        fonts: s.fonts,
+        fontLabels: s.fontLabels,
+        updateElement: s.updateElement,
+        overrideForRow: s.overrideForRow,
+        template: s.template,
+        rowId: artefact?.rowId ?? null,
+        rowLabel: artefact?.label ?? "",
+      };
+    }),
   );
+  const [rowOnly, setRowOnly] = useState(false);
 
   if (!element) {
     return (
@@ -46,10 +77,37 @@ export function InspectorPanel() {
     );
   }
 
-  const patch = (p: Partial<CardElement>) => updateElement(element.id, p);
+  const patch = (p: Partial<CardElement>) =>
+    // The same edits, aimed at one row or at the design (D1). Everything below
+    // is written once and routed here, so nothing can be editable in one mode
+    // and mysteriously missing in the other.
+    rowOnly && rowId
+      ? overrideForRow(rowId, element.id, p as ElementPatch)
+      : updateElement(element.id, p);
+
+  const overridden = Boolean(rowId && template.overrides?.[rowId]?.[element.id]);
 
   return (
     <Panel title="Selected element">
+      {rowId && (
+        <div className={styles.scope}>
+          <CheckboxField
+            label={`Just this one: ${rowLabel}`}
+            checked={rowOnly}
+            onChange={setRowOnly}
+            hint="Edits apply to this artefact alone, as a patch over the design."
+          />
+          {overridden && (
+            <button
+              type="button"
+              className={styles.clear}
+              onClick={() => overrideForRow(rowId, element.id, null)}
+            >
+              Reset this element to the design
+            </button>
+          )}
+        </div>
+      )}
       <Row>
         <NumberField label="X" value={element.x} step={0.5} suffix="mm" onChange={(x) => patch({ x })} />
         <NumberField label="Y" value={element.y} step={0.5} suffix="mm" onChange={(y) => patch({ y })} />
@@ -78,6 +136,17 @@ export function InspectorPanel() {
           element={element}
           headers={headers}
           fontOptions={[...fonts.keys()].map((id) => ({ value: id, label: fontLabels[id] ?? id }))}
+          fonts={fonts}
+          patch={patch}
+        />
+      )}
+
+      {element.kind === "list" && (
+        <ListProperties
+          element={element}
+          headers={headers}
+          fontOptions={[...fonts.keys()].map((id) => ({ value: id, label: fontLabels[id] ?? id }))}
+          fonts={fonts}
           patch={patch}
         />
       )}
@@ -151,15 +220,205 @@ export function InspectorPanel() {
   );
 }
 
+/**
+ * A list is one line per row of whatever this artefact covers — the menu for a
+ * table, the run-sheet for the whole event. Its typography controls are the
+ * text ones; only the binding and the fit differ, so it reuses them.
+ */
+function ListProperties({
+  element,
+  headers,
+  fontOptions,
+  fonts,
+  patch,
+}: {
+  element: ListElement;
+  headers: string[];
+  fontOptions: Array<{ value: string; label: string }>;
+  fonts: Map<string, LoadedFont>;
+  patch: (p: Partial<CardElement>) => void;
+}) {
+  return (
+    <>
+      <TextField
+        label="One line per row"
+        value={element.itemTemplate}
+        placeholder="{{First Name}} — {{Meal}}"
+        onChange={(itemTemplate) => patch({ itemTemplate })}
+      />
+      <Hint>
+        {headers.length > 0
+          ? `Repeats for every row this artefact covers. With per-group scope that is one table; with document scope, the whole list.`
+          : "Upload a CSV, then set the row scope under Guest list."}
+      </Hint>
+
+      <Row>
+        <TextField
+          label="Bullet"
+          value={element.bullet}
+          placeholder="•"
+          onChange={(bullet) => patch({ bullet })}
+        />
+        <CheckboxField
+          label="Skip empty rows"
+          checked={element.skipEmpty}
+          onChange={(skipEmpty) => patch({ skipEmpty })}
+          hint="A row whose line comes out blank is dropped rather than printed as a gap."
+        />
+      </Row>
+
+      <SelectField label="Font" value={element.fontId} options={fontOptions} onChange={(fontId) => patch({ fontId })} />
+
+      <Row>
+        <NumberField
+          label="Size"
+          value={element.fontSizePt}
+          step={0.5}
+          min={1}
+          suffix="pt"
+          onChange={(fontSizePt) => patch({ fontSizePt })}
+        />
+        <NumberField
+          label="Line height"
+          value={element.lineHeight}
+          step={0.05}
+          min={0.5}
+          onChange={(lineHeight) => patch({ lineHeight })}
+        />
+      </Row>
+
+      <Row>
+        <SelectField<HAlign>
+          label="Align"
+          value={element.align}
+          options={[
+            { value: "left", label: "Left" },
+            { value: "center", label: "Centre" },
+            { value: "right", label: "Right" },
+          ]}
+          onChange={(align) => patch({ align })}
+        />
+        <SelectField<VAlign>
+          label="Vertically"
+          value={element.vAlign}
+          options={[
+            { value: "top", label: "Top" },
+            { value: "middle", label: "Middle" },
+            { value: "bottom", label: "Bottom" },
+          ]}
+          onChange={(vAlign) => patch({ vAlign })}
+        />
+      </Row>
+
+      <ColorField label="Colour" value={element.colorHex} onChange={(c) => patch({ colorHex: c ?? "#000000" })} />
+
+      <OpticalProperties element={element} patch={patch} fonts={fonts} />
+
+      <Row>
+        <NumberField
+          label="Never below"
+          value={element.fit.minFontSizePt}
+          step={0.5}
+          min={1}
+          suffix="pt"
+          onChange={(minFontSizePt) => patch({ fit: { ...element.fit, minFontSizePt } })}
+        />
+        <SelectField<FitMode>
+          label="If it does not fit"
+          value={element.fit.mode === "none" ? "none" : "shrink"}
+          options={[
+            { value: "shrink", label: "Shrink the whole block" },
+            { value: "none", label: "Leave it and warn me" },
+          ]}
+          onChange={(mode) => patch({ fit: { ...element.fit, mode } })}
+        />
+      </Row>
+      <Hint>
+        Lines are never re-wrapped — a wrapped menu line reads as two guests. The block shrinks until
+        every line fits, then warns.
+      </Hint>
+    </>
+  );
+}
+
+/**
+ * E1 — the difference between "printed at home" and "bought". All of it is
+ * fontkit metrics applied in core/text/optical; nothing here does any layout.
+ */
+function OpticalProperties({
+  element,
+  patch,
+  fonts,
+}: {
+  element: TextElement | ListElement;
+  patch: (p: Partial<CardElement>) => void;
+  fonts: Map<string, LoadedFont>;
+}) {
+  const optical = element.optical ?? DEFAULT_OPTICAL;
+  const font = fonts.get(element.fontId);
+  const features = font ? availableFeatures(font) : [];
+  const notable = NOTABLE_FEATURES.filter((f) => features.includes(f));
+  const set = (next: Partial<typeof optical>) =>
+    patch({ optical: { ...optical, ...next } });
+
+  return (
+    <>
+      <CheckboxField
+        label="Optical centring"
+        checked={optical.opticalAlign}
+        onChange={(opticalAlign) => set({ opticalAlign })}
+        hint="Centre by the ink rather than the advance width, so a name ending in a full stop still looks centred."
+      />
+      <CheckboxField
+        label="Hanging punctuation"
+        checked={optical.hangingPunctuation}
+        onChange={(hangingPunctuation) => set({ hangingPunctuation })}
+        hint="Let a leading or trailing quote or dash sit outside the measure, so the letters stay aligned."
+      />
+      {notable.length > 0 && (
+        <>
+          <div className={styles.features}>
+            {notable.map((feature) => {
+              // null means "the font's own defaults"; the first switch pins the
+              // whole set so what is on and off is explicit from then on.
+              const active = optical.features ?? [...notable];
+              const on = active.includes(feature);
+              return (
+                <button
+                  key={feature}
+                  type="button"
+                  className={on ? `${styles.feature} ${styles.featureOn}` : styles.feature}
+                  onClick={() =>
+                    set({
+                      features: on ? active.filter((f) => f !== feature) : [...active, feature],
+                    })
+                  }
+                >
+                  {feature}
+                </button>
+              );
+            })}
+          </div>
+          <Hint>
+            OpenType features this face offers. Turn "liga" off for a name its ligatures mangle.
+          </Hint>
+        </>
+      )}
+    </>
+  );
+}
+
 function TextProperties({
   element,
   headers,
   fontOptions,
+  fonts,
   patch,
 }: {
   element: TextElement;
   headers: string[];
   fontOptions: Array<{ value: string; label: string }>;
+  fonts: Map<string, LoadedFont>;
   patch: (p: Partial<CardElement>) => void;
 }) {
   return (
@@ -218,6 +477,8 @@ function TextProperties({
           onChange={(vAlign) => patch({ vAlign })}
         />
       </Row>
+
+      <OpticalProperties element={element} patch={patch} fonts={fonts} />
 
       <Row>
         <NumberField

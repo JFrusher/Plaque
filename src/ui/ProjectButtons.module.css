@@ -35,3 +35,22 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* A migration note is long, and truncating it would defeat the point of it. */
+.note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 60ch;
+  color: var(--grey-8);
+  font-size: var(--text-xs);
+}
+
+.dismiss {
+  border: 0;
+  background: none;
+  color: var(--grey-6);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}

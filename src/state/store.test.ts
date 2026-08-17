@@ -165,3 +165,133 @@ describe("clearAll", () => {
     expect(state().fileName).toBeNull();
   });
 });
+
+describe("combining rows (S-I.3)", () => {
+  const threeRows = () => ({
+    headers: HEADERS,
+    rows: [
+      ...ROWS,
+      { "First Name": "Tobias", "Last Name": "Ashdown", Table: "Table 1", Dietary: "" },
+    ],
+    issues: [],
+    fileName: "guests.csv",
+  });
+
+  it("gives every row an id, so an override can outlive a re-order", () => {
+    state().setCsv(csv());
+    expect(state().rowIds).toHaveLength(ROWS.length);
+    expect(new Set(state().rowIds).size).toBe(ROWS.length);
+  });
+
+  it("joins two guests onto one row and drops the originals from the list", () => {
+    state().setCsv(threeRows());
+    state().combineRows([0, 2]);
+    expect(state().rows).toHaveLength(2);
+    expect(state().rows[0]?.["First Name"]).toBe("Charis & Tobias");
+  });
+
+  it("says a shared value once rather than repeating it", () => {
+    state().setCsv(threeRows());
+    state().combineRows([0, 2]);
+    // Both are on Table 1; the card should not read "Table 1 & Table 1".
+    expect(state().rows[0]?.["Table"]).toBe("Table 1");
+  });
+
+  it("puts the combined row where the first of its sources was", () => {
+    state().setCsv(threeRows());
+    state().combineRows([1, 2]);
+    expect(state().rows[0]?.["First Name"]).toBe("Charis");
+    expect(state().rows[1]?.["First Name"]).toBe("Eleanor & Tobias");
+  });
+
+  it("restores the originals exactly when split again", () => {
+    state().setCsv(threeRows());
+    const before = state().rows;
+    const beforeIds = state().rowIds;
+    state().combineRows([0, 2]);
+    state().splitRow(state().rowIds[0]!);
+    expect(state().rows).toEqual(before);
+    expect(state().rowIds).toEqual(beforeIds);
+    expect(state().merged).toEqual({});
+  });
+
+  it("refuses to combine fewer than two rows", () => {
+    state().setCsv(csv());
+    state().combineRows([0]);
+    expect(state().rows).toHaveLength(2);
+  });
+
+  it("ignores a split of something that was never combined", () => {
+    state().setCsv(csv());
+    state().splitRow("nope");
+    expect(state().rows).toHaveLength(2);
+  });
+
+  it("stays out of undo history — split is its inverse, and rows are not design", () => {
+    // Fifty snapshots each carrying 2000 rows would be its own kind of data loss.
+    state().setCsv(threeRows());
+    const historyBefore = state().past.length;
+    state().combineRows([0, 2]);
+    expect(state().past).toHaveLength(historyBefore);
+    state().splitRow(state().rowIds[0]!);
+    expect(state().rows).toHaveLength(3);
+  });
+
+  it("drops ids and combines when a new CSV arrives", () => {
+    state().setCsv(threeRows());
+    state().combineRows([0, 2]);
+    state().setCsv(csv());
+    expect(state().merged).toEqual({});
+    expect(state().rowIds).toHaveLength(ROWS.length);
+  });
+});
+
+describe("per-row overrides (D1)", () => {
+  it("stores and clears a patch for one row", () => {
+    state().setCsv(csv());
+    state().addElement("text");
+    const elementId = state().template.elements[0]!.id;
+    const rowId = state().rowIds[0]!;
+
+    state().overrideForRow(rowId, elementId, { fontSizePt: 11 });
+    expect(state().template.overrides?.[rowId]?.[elementId]).toEqual({ fontSizePt: 11 });
+
+    state().overrideForRow(rowId, elementId, null);
+    expect(state().template.overrides?.[rowId]).toBeUndefined();
+  });
+
+  it("is undoable, because it is design and not data", () => {
+    state().setCsv(csv());
+    state().addElement("text");
+    const elementId = state().template.elements[0]!.id;
+    state().overrideForRow(state().rowIds[0]!, elementId, { fontSizePt: 11 });
+    state().undo();
+    expect(state().template.overrides ?? {}).toEqual({});
+  });
+});
+
+describe("a second CSV with different headers (S-B.1)", () => {
+  it("re-attaches the design by column role rather than unbinding it", () => {
+    state().setCsv(csv());
+    const before = state().template.elements.length;
+    expect(before).toBeGreaterThan(0);
+
+    state().setCsv({
+      headers: ["Guest First", "Guest Last", "Tbl", "Dietary Needs"],
+      rows: [{ "Guest First": "Ada", "Guest Last": "Lovelace", Tbl: "Table 1", "Dietary Needs": "" }],
+      issues: [],
+      fileName: "next-year.csv",
+    });
+
+    const templates = state()
+      .template.elements.flatMap((el) => (el.kind === "text" ? [el.template] : []));
+    expect(state().template.elements).toHaveLength(before);
+    expect(templates.join(" ")).toContain("{{Guest First}}");
+    expect(templates.join(" ")).not.toContain("{{First Name}}");
+  });
+
+  it("builds a fresh template only when there was nothing to keep", () => {
+    state().setCsv(csv());
+    expect(state().template.elements.length).toBeGreaterThan(0);
+  });
+});
