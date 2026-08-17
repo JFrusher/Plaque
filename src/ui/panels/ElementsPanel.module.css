@@ -1,0 +1,97 @@
+.add {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-1);
+}
+
+.addButton {
+  padding: var(--sp-1) 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.addButton:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.item {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--surface-sunken);
+}
+
+.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.kind {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--grey-5);
+}
+
+.name {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.actions {
+  display: flex;
+  gap: 1px;
+}
+
+.actions button {
+  width: 22px;
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--grey-6);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.actions button:hover {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.empty {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}

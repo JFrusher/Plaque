@@ -1,0 +1,75 @@
+.drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+  text-align: center;
+}
+
+.over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.dropText {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.button {
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.hidden {
+  display: none;
+}
+
+.error {
+  margin: 0;
+  padding: var(--sp-2);
+  border-radius: var(--radius);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: var(--text-xs);
+}
+
+.tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+.token {
+  padding: 2px 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-7);
+}
+
+.issues {
+  font-size: var(--text-xs);
+  color: var(--warn);
+}
+
+.issues ul {
+  margin: var(--sp-1) 0 0;
+  padding-left: var(--sp-4);
+  color: var(--text-muted);
+}
+
+.issues li {
+  margin-bottom: 2px;
+}

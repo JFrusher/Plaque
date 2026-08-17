@@ -1,0 +1,80 @@
+.rules,
+.uploads {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rule,
+.uploads li {
+  display: grid;
+  grid-template-columns: 1fr 18px minmax(7rem, 1fr);
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.uploads li {
+  grid-template-columns: 18px 1fr auto;
+}
+
+.uploads button {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.value {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.swatch {
+  width: 18px;
+  height: 18px;
+}
+
+.select {
+  width: 100%;
+  min-width: 0;
+  padding: 3px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: var(--text-xs);
+}
+
+.uploadRow {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.button {
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.hidden {
+  display: none;
+}
+
+.error {
+  margin: 0;
+  padding: var(--sp-2);
+  border-radius: var(--radius);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}

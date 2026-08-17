@@ -48,7 +48,9 @@ const icon = (over: Partial<IconElement> = {}): IconElement => ({
 });
 
 const row = { "First Name": "Charis", "Last Name": "Smith", Dietary: "Vegetarian" };
-const paths: Record<string, { d: string }> = { leaf: { d: "M12 2 L2 12 L12 22 Z" } };
+const paths: Record<string, { d: string; view: { x: number; y: number; w: number; h: number } }> = {
+  leaf: { d: "M12 2 L2 12 L12 22 Z", view: { x: 0, y: 0, w: 24, h: 24 } },
+};
 const opts = { fitText: noFit, iconPath: (id: string) => paths[id] ?? null };
 
 describe("resolveCard", () => {

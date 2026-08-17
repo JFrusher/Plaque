@@ -1,0 +1,52 @@
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-2);
+}
+
+.suggestionsLabel {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.suggestion {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+.suggestion:hover {
+  border-color: var(--border-strong);
+}
+
+.suggestion strong {
+  font-size: var(--text-sm);
+}
+
+.suggestion span {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.textButton {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: var(--text-xs);
+  text-decoration: underline;
+  cursor: pointer;
+}

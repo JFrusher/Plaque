@@ -1,5 +1,5 @@
-import { ICON_VIEWBOX } from "../../assets/icons";
 import { centreOf } from "../../core/geometry/transform";
+import { fitIcon } from "../../core/template/iconFit";
 import { layoutLines } from "../../core/text/layout";
 import type { LoadedFont } from "../../core/text/measure";
 import type { ResolvedElement } from "../../core/types";
@@ -58,12 +58,9 @@ function renderBody(el: ResolvedElement, fonts: Map<string, LoadedFont>) {
 
     case "icon": {
       if (!el.pathD) return null;
-      const side = Math.min(el.w, el.h);
-      const x = el.x + (el.w - side) / 2;
-      const y = el.y + (el.h - side) / 2;
-      const scale = side / ICON_VIEWBOX;
+      const fit = fitIcon({ x: el.x, y: el.y, w: el.w, h: el.h }, el.view);
       return (
-        <g transform={`translate(${x} ${y}) scale(${scale})`}>
+        <g transform={`translate(${fit.x} ${fit.y}) scale(${fit.scale}) translate(${-el.view.x} ${-el.view.y})`}>
           <path d={el.pathD} fill={el.colorHex} />
           {el.cutD && <path d={el.cutD} fill={el.cutHex} />}
         </g>

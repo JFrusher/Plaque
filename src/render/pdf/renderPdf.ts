@@ -124,9 +124,11 @@ function drawElement(
 
     case "icon":
       if (!el.pathD) return;
-      drawIconPath(page, el.pathD, box, el.rotationDeg, hexToRgb(el.colorHex), toPdf);
+      drawIconPath(page, el.pathD, box, el.view, el.rotationDeg, hexToRgb(el.colorHex), toPdf);
       // The knockout goes on top, in the card's own background colour.
-      if (el.cutD) drawIconPath(page, el.cutD, box, el.rotationDeg, hexToRgb(el.cutHex), toPdf);
+      if (el.cutD) {
+        drawIconPath(page, el.cutD, box, el.view, el.rotationDeg, hexToRgb(el.cutHex), toPdf);
+      }
       return;
 
     case "rect":

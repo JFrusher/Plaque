@@ -1,0 +1,71 @@
+import { useState } from "react";
+import { hasErrors, validateGeometry } from "../core/geometry/validate";
+import { paginate } from "../core/imposition/paginate";
+import { makeResolveOptions } from "../core/template/resolve";
+import { renderPdf } from "../render/pdf/renderPdf";
+import { usePlaque } from "../state/store";
+import styles from "./ExportBar.module.css";
+
+export interface ExportBarProps {
+  sheetCount: number;
+}
+
+/** The primary action. Everything else on screen exists to make this button correct. */
+export function ExportBar({ sheetCount }: ExportBarProps) {
+  const { card, sheet, template, rows, fonts, uploadedIcons, fileName } = usePlaque();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const issues = validateGeometry(card, sheet);
+  const blocked = hasErrors(issues) || rows.length === 0 || sheetCount === 0;
+
+  async function download() {
+    setBusy(true);
+    setError(null);
+    try {
+      const { sheets } = paginate(
+        template,
+        rows,
+        card,
+        sheet,
+        makeResolveOptions(fonts, uploadedIcons),
+      );
+      const { bytes } = await renderPdf({ sheets, fonts, title: nameFor(fileName) });
+      // A Blob copy, because the underlying buffer is reused after save().
+      const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${nameFor(fileName)}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The PDF could not be generated.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className={styles.bar}>
+      <button
+        type="button"
+        className={styles.primary}
+        disabled={blocked || busy}
+        onClick={() => void download()}
+      >
+        {busy ? "Generating…" : "Download print-ready PDF"}
+      </button>
+      <span className={styles.meta}>
+        {rows.length === 0
+          ? "Upload a guest list to begin"
+          : `${rows.length} ${rows.length === 1 ? "card" : "cards"} · ${sheetCount} ${sheetCount === 1 ? "sheet" : "sheets"}`}
+      </span>
+      {error && <span className={styles.error}>{error}</span>}
+    </div>
+  );
+}
+
+function nameFor(fileName: string | null): string {
+  if (!fileName) return "place-cards";
+  return fileName.replace(/\.[^.]+$/, "") || "place-cards";
+}

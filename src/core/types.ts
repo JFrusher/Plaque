@@ -197,10 +197,12 @@ export interface ResolvedText extends ResolvedBase {
 
 export interface ResolvedIcon extends ResolvedBase {
   kind: "icon";
-  /** SVG path data in a 24x24 viewBox. `null` when no rule matched. */
+  /** SVG path data. `null` when no rule matched. */
   pathD: string | null;
   /** Knocked out of the shape — the diagonal bar on a "free from" mark. */
   cutD: string | null;
+  /** The space `pathD` is drawn in, so it can be fitted to the element box. */
+  view: { x: Mm; y: Mm; w: Mm; h: Mm };
   colorHex: Hex;
   /** What the knockout is painted in: the card's background, or paper white. */
   cutHex: Hex;

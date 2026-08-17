@@ -1,0 +1,28 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  list-style: none;
+  border-top: 1px solid var(--border);
+  max-height: 22vh;
+  overflow-y: auto;
+}
+
+.list li {
+  padding: var(--sp-2);
+  border-radius: var(--radius);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.warning {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}

@@ -7,7 +7,7 @@ import type {
   Template,
   TextElement,
 } from "../types";
-import type { IconArt } from "../../assets/icons";
+import { BUNDLED_VIEW, type IconArt } from "../../assets/icons";
 import type { GuestRow } from "../csv/parse";
 import { interpolate } from "../csv/interpolate";
 import { transformForPanel } from "../geometry/fold";
@@ -122,6 +122,7 @@ export function resolveCard(
           kind: "icon",
           pathD: art?.d ?? null,
           cutD: art?.cut ?? null,
+          view: art?.view ?? BUNDLED_VIEW,
           colorHex: el.colorHex,
           cutHex: template.backgroundHex ?? "#ffffff",
         });

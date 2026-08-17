@@ -16,13 +16,29 @@
  * path data here and nothing else.
  */
 
+export interface IconViewBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface IconArt {
   d: string;
   /** Knocked out of the shape in the card background colour. */
   cut?: string;
+  /**
+   * The coordinate space the path data is drawn in. Bundled icons use 24x24;
+   * an uploaded SVG keeps whatever it came with. Carrying the viewBox is far
+   * safer than rescaling path data, which would mean re-implementing every
+   * path command including elliptical arcs.
+   */
+  view: IconViewBox;
 }
 
-export interface BundledIcon extends IconArt {
+export interface BundledIcon {
+  d: string;
+  cut?: string;
   id: string;
   label: string;
   /**
@@ -93,6 +109,7 @@ export const BUNDLED_ICONS: BundledIcon[] = [
 ];
 
 export const ICON_VIEWBOX = 24;
+export const BUNDLED_VIEW: IconViewBox = { x: 0, y: 0, w: ICON_VIEWBOX, h: ICON_VIEWBOX };
 
 export function bundledIcon(id: string): BundledIcon | undefined {
   return BUNDLED_ICONS.find((i) => i.id === id);
@@ -105,9 +122,32 @@ export function bundledIcon(id: string): BundledIcon | undefined {
 export function makeIconLookup(uploaded: Record<string, string> = {}) {
   return (id: string): IconArt | null => {
     const custom = uploaded[id];
-    if (custom) return { d: custom };
+    if (custom) return parseStoredIcon(custom);
     const bundled = bundledIcon(id);
     if (!bundled) return null;
-    return bundled.cut ? { d: bundled.d, cut: bundled.cut } : { d: bundled.d };
+    return bundled.cut
+      ? { d: bundled.d, cut: bundled.cut, view: BUNDLED_VIEW }
+      : { d: bundled.d, view: BUNDLED_VIEW };
   };
+}
+
+/**
+ * Uploaded icons are stored as `x y w h|pathdata` so a single string can carry
+ * both the geometry and the space it was drawn in.
+ */
+export function serialiseIcon(view: IconViewBox, d: string): string {
+  return `${view.x} ${view.y} ${view.w} ${view.h}|${d}`;
+}
+
+export function parseStoredIcon(stored: string): IconArt {
+  const split = stored.indexOf("|");
+  if (split < 0) return { d: stored, view: BUNDLED_VIEW };
+  const parts = stored.slice(0, split).split(/\s+/).map(Number);
+  const d = stored.slice(split + 1);
+  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) {
+    return { d, view: BUNDLED_VIEW };
+  }
+  const [x, y, w, h] = parts as [number, number, number, number];
+  if (w <= 0 || h <= 0) return { d, view: BUNDLED_VIEW };
+  return { d, view: { x, y, w, h } };
 }
