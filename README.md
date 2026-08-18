@@ -8,7 +8,12 @@ device.
 
 - Design one card in a freeform editor. Mix fixed text with `{{Column}}` tokens
   from your CSV, in any element.
-- Drop in a monogram, crest or venue mark as a PNG or JPEG.
+- Drop in a monogram, crest or venue mark as a PNG or JPEG. Fill the box and
+  crop it by eye — drag the artwork, wheel to zoom — or fit it to the card, to
+  the panel, or to its own natural size in one press. Shift keeps a box's shape
+  while you resize it.
+- Hide the sheet pane when you want the whole window for the card, and zoom in
+  on the work. Anything that leaves the card, or straddles the fold, says so.
 - Any card size, any fold position, custom bleed and margins — with layout
   suggestions that work out how to waste the least card stock.
 - Tent cards print the back panel rotated 180°, so it reads from across the
