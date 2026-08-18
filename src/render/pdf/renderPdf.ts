@@ -1,7 +1,14 @@
 import {
   PDFDocument,
   StandardFonts,
+  clip,
+  closePath,
   degrees,
+  endPath,
+  lineTo,
+  moveTo,
+  popGraphicsState,
+  pushGraphicsState,
   rgb,
   type PDFImage,
   type PDFPage,
@@ -11,10 +18,10 @@ import { HAIRLINE_PT } from "../../core/geometry/cropMarks";
 import { effectiveScale } from "../../core/print/printerProfile";
 import { scaleSheetContent } from "../../core/print/scaleSheet";
 import { centreOf, rotatePoint } from "../../core/geometry/transform";
-import { fitIcon } from "../../core/template/iconFit";
+import { fitImage } from "../../core/template/imageFit";
 import { layoutLines } from "../../core/text/layout";
 import type { LoadedFont } from "../../core/text/measure";
-import type { Hex, Mm, Point, ResolvedElement, Segment, Sheet } from "../../core/types";
+import type { Hex, Mm, Point, Rect, ResolvedElement, Segment, Sheet } from "../../core/types";
 import { mmToPt } from "../../core/units";
 import { drawIconPath } from "./drawIcon";
 import { embedFonts } from "./embedFonts";
@@ -259,10 +266,20 @@ function drawElement(
       if (!el.image) return;
       const embeddedImage = images.get(el.image.id);
       if (!embeddedImage) return;
-      const placed =
-        el.fit === "stretch"
-          ? { x: box.x, y: box.y, drawnW: box.w, drawnH: box.h }
-          : fitIcon(box, { x: 0, y: 0, w: el.image.naturalW, h: el.image.naturalH });
+      const placed = fitImage(
+        box,
+        { w: el.image.naturalW, h: el.image.naturalH },
+        {
+          fit: el.fit,
+          ...(el.zoom === undefined ? {} : { zoom: el.zoom }),
+          ...(el.focusX === undefined ? {} : { focusX: el.focusX }),
+          ...(el.focusY === undefined ? {} : { focusY: el.focusY }),
+        },
+      );
+      // A crop draws artwork wider than its box, so the box has to become a
+      // clipping path first — otherwise the overflow prints across the card
+      // beside it on the sheet.
+      if (placed.clip) clipToBox(page, placed.clip, el.rotationDeg, toPdf);
       // pdf-lib anchors an image at its bottom-left, as it does a rectangle.
       const corner = { x: placed.x, y: placed.y + placed.drawnH };
       const anchor = toPdf(rotatePoint(corner, centreOf(box), el.rotationDeg));
@@ -274,6 +291,7 @@ function drawElement(
         rotate: degrees(-el.rotationDeg),
         opacity: el.opacity,
       });
+      if (placed.clip) page.pushOperators(popGraphicsState());
       return;
     }
 
@@ -359,6 +377,39 @@ async function embedImages(doc: PDFDocument, sheets: Sheet[]): Promise<Map<strin
     }
   }
   return out;
+}
+
+/**
+ * Narrows everything drawn after it to `box`, until the graphics state is
+ * popped again. Rotated with the element, so a cropped image on the inverted
+ * panel of a tent card is clipped by its own box rather than by an upright one.
+ */
+function clipToBox(
+  page: PDFPage,
+  box: Rect,
+  rotationDeg: number,
+  toPdf: (p: Point) => { x: number; y: number },
+): void {
+  const centre = centreOf(box);
+  const [tl, tr, br, bl] = (
+    [
+      { x: box.x, y: box.y },
+      { x: box.x + box.w, y: box.y },
+      { x: box.x + box.w, y: box.y + box.h },
+      { x: box.x, y: box.y + box.h },
+    ] as const
+  ).map((corner) => toPdf(rotatePoint(corner, centre, rotationDeg)));
+
+  page.pushOperators(
+    pushGraphicsState(),
+    moveTo(tl!.x, tl!.y),
+    lineTo(tr!.x, tr!.y),
+    lineTo(br!.x, br!.y),
+    lineTo(bl!.x, bl!.y),
+    closePath(),
+    clip(),
+    endPath(),
+  );
 }
 
 function drawRect(

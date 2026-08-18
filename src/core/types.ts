@@ -188,8 +188,11 @@ export interface LineElement extends ElementBase {
   dashed: boolean;
 }
 
-/** `contain` preserves the image's aspect inside the box; `stretch` fills it. */
-export type ImageFit = "contain" | "stretch";
+/**
+ * `contain` preserves the image's aspect inside the box; `stretch` fills it;
+ * `cover` fills it with the aspect kept, cropping the overflow. See imageFit.
+ */
+export type ImageFit = "contain" | "stretch" | "cover";
 
 export interface ImageElement extends ElementBase {
   kind: "image";
@@ -198,6 +201,15 @@ export interface ImageElement extends ElementBase {
   fit: ImageFit;
   /** 0..1. Useful for a watermark sitting behind a name. */
   opacity: number;
+  /**
+   * The crop, under `cover` only, stored as ratios rather than a source
+   * rectangle so it survives a box resize. Absent means 1 and centred, which is
+   * what every design written before cropping existed meant. See imageFit.
+   */
+  zoom?: number;
+  /** 0..1 of the artwork. The point held at the centre of the box. */
+  focusX?: number;
+  focusY?: number;
 }
 
 /**
@@ -367,6 +379,10 @@ export interface ResolvedImage extends ResolvedBase {
   missingName: string | null;
   fit: ImageFit;
   opacity: number;
+  /** The crop, absent when there is none. See `ImageElement`. */
+  zoom?: number;
+  focusX?: number;
+  focusY?: number;
 }
 
 export interface ResolvedImageSource {

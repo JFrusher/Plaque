@@ -92,8 +92,13 @@ export function useDragElement({
         onEditStart();
       }
 
-      const raw = applyDrag(start.box, start.mode, dx, dy);
-      const snapped = snapEnabled ? snapFor(raw, start.mode, snapTargets) : noSnap(raw);
+      // Shift locks the aspect. Snapping is skipped while it is held: pulling
+      // one edge onto a guide is exactly what would break the shape the user is
+      // holding Shift to keep.
+      const lockAspect = event.shiftKey;
+      const raw = applyDrag(start.box, start.mode, dx, dy, lockAspect);
+      const snapped =
+        snapEnabled && !lockAspect ? snapFor(raw, start.mode, snapTargets) : noSnap(raw);
       const box = clampBox(snapped.box);
       setDrag({ id: drag.id, box, hitXs: snapped.hitXs, hitYs: snapped.hitYs });
       onChange(drag.id, box);
@@ -122,8 +127,16 @@ function snapFor(box: Rect, mode: DragMode, targets: SnapTargets) {
     : snapResize(box, targets, threshold, edgesFor(mode));
 }
 
-/** Applies a pointer delta to a box for the given handle. */
-export function applyDrag(box: Rect, mode: DragMode, dx: Mm, dy: Mm): Rect {
+/**
+ * Applies a pointer delta to a box for the given handle.
+ *
+ * With `lockAspect`, a corner drag keeps the box's shape: whichever axis the
+ * pointer moved further along — as a share of that side's own length, so a
+ * short side is not permanently outvoted by a long one — leads, and the other
+ * follows from the starting aspect. Edge handles ignore it: dragging one edge
+ * has no second axis whose shape there is to keep.
+ */
+export function applyDrag(box: Rect, mode: DragMode, dx: Mm, dy: Mm, lockAspect = false): Rect {
   if (mode === "move") return { ...box, x: box.x + dx, y: box.y + dy };
 
   const west = mode.includes("w");
@@ -139,7 +152,22 @@ export function applyDrag(box: Rect, mode: DragMode, dx: Mm, dy: Mm): Rect {
   if (north) h -= dy;
   else if (south) h += dy;
 
-  return { x: west ? box.x + dx : box.x, y: north ? box.y + dy : box.y, w, h };
+  const corner = (west || east) && (north || south);
+  if (lockAspect && corner && box.w > 0 && box.h > 0) {
+    const aspect = box.w / box.h;
+    if (Math.abs(dx) / box.w >= Math.abs(dy) / box.h) h = w / aspect;
+    else w = h * aspect;
+  }
+
+  // Derived from the far edge rather than from the delta, so a locked drag
+  // that changed a side by more than the pointer moved still leaves the
+  // opposite corner where it was.
+  return {
+    x: west ? box.x + box.w - w : box.x,
+    y: north ? box.y + box.h - h : box.y,
+    w,
+    h,
+  };
 }
 
 export function edgesFor(mode: DragMode) {

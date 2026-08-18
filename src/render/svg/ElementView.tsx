@@ -1,5 +1,6 @@
 import { centreOf } from "../../core/geometry/transform";
 import { fitIcon } from "../../core/template/iconFit";
+import { fitImage } from "../../core/template/imageFit";
 import { layoutLines } from "../../core/text/layout";
 import type { LoadedFont } from "../../core/text/measure";
 import type { ResolvedElement } from "../../core/types";
@@ -95,14 +96,21 @@ function renderBody(el: ResolvedElement, fonts: Map<string, LoadedFont>) {
         );
       }
       if (!el.image) return null;
-      // `contain` uses the same fitter the icons use, so an image and an icon
-      // in identical boxes land in identical places.
+      // The same fitter the PDF uses, so what is on screen is what prints —
+      // and `contain` goes through the icon fitter inside it, so an image and
+      // an icon in identical boxes still land in identical places.
       const box = { x: el.x, y: el.y, w: el.w, h: el.h };
-      const placed =
-        el.fit === "stretch"
-          ? { x: box.x, y: box.y, drawnW: box.w, drawnH: box.h }
-          : fitIcon(box, { x: 0, y: 0, w: el.image.naturalW, h: el.image.naturalH });
-      return (
+      const placed = fitImage(
+        box,
+        { w: el.image.naturalW, h: el.image.naturalH },
+        {
+          fit: el.fit,
+          ...(el.zoom === undefined ? {} : { zoom: el.zoom }),
+          ...(el.focusX === undefined ? {} : { focusX: el.focusX }),
+          ...(el.focusY === undefined ? {} : { focusY: el.focusY }),
+        },
+      );
+      const art = (
         <image
           href={el.image.url}
           x={placed.x}
@@ -112,6 +120,16 @@ function renderBody(el: ResolvedElement, fonts: Map<string, LoadedFont>) {
           opacity={el.opacity}
           preserveAspectRatio="none"
         />
+      );
+      if (!placed.clip) return art;
+      const clipId = `crop-${el.id}`;
+      return (
+        <g>
+          <clipPath id={clipId}>
+            <rect x={box.x} y={box.y} width={box.w} height={box.h} />
+          </clipPath>
+          <g clipPath={`url(#${clipId})`}>{art}</g>
+        </g>
       );
     }
 

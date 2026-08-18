@@ -193,4 +193,41 @@ describe("image elements", () => {
     expect(inflateAll(faded.bytes)).toMatch(/\/ca 0?\.3/);
     expect(inflateAll(opaque.bytes)).not.toMatch(/\/ca 0?\.3/);
   });
+
+  it("clips a cover crop to its box, so the overflow never prints", async () => {
+    const { bytes } = await renderPdf({
+      sheets: [sheetWith({ elements: [imageEl({ w: 40, h: 40, fit: "cover" })], backgroundHex: null })],
+      fonts,
+    });
+    // "W n" is the PDF clipping path operator followed by the no-op painter:
+    // the only thing that stops a 2:1 image drawn 80mm wide from spilling out
+    // of its 40mm box and over the card beside it.
+    expect(inflateAll(bytes)).toMatch(/\sW\s+n\s/);
+  });
+
+  it("does not clip a contain fit, which is inside its box already", async () => {
+    const { bytes } = await renderPdf({
+      sheets: [sheetWith({ elements: [imageEl({ w: 40, h: 40, fit: "contain" })], backgroundHex: null })],
+      fonts,
+    });
+    expect(inflateAll(bytes)).not.toMatch(/\sW\s+n\s/);
+  });
+
+  it("restores the graphics state after a clip, so later elements are not clipped", async () => {
+    const { bytes } = await renderPdf({
+      sheets: [
+        sheetWith({
+          elements: [imageEl({ w: 40, h: 40, fit: "cover" })],
+          backgroundHex: null,
+        }),
+      ],
+      fonts,
+    });
+    const stream = inflateAll(bytes);
+    // Lookarounds, not \s...\s: consecutive operators share their separator,
+    // and a consuming match would swallow it and miss every second one.
+    const pushes = (stream.match(/(?<=\s)q(?=\s)/g) ?? []).length;
+    const pops = (stream.match(/(?<=\s)Q(?=\s)/g) ?? []).length;
+    expect(pushes).toBe(pops);
+  });
 });

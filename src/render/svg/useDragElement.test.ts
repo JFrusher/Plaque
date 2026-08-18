@@ -35,6 +35,47 @@ describe("applyDrag", () => {
   });
 });
 
+describe("applyDrag with the aspect locked", () => {
+  it("keeps the box's shape when a corner is dragged", () => {
+    const r = applyDrag(box, "se", 5, 7, true);
+    expect(r.w / r.h).toBeCloseTo(box.w / box.h, 10);
+  });
+
+  it("holds the opposite corner still, as an unlocked drag does", () => {
+    const se = applyDrag(box, "se", 5, 7, true);
+    expect(se.x).toBe(box.x);
+    expect(se.y).toBe(box.y);
+
+    const nw = applyDrag(box, "nw", 5, 7, true);
+    expect(nw.x + nw.w).toBeCloseTo(box.x + box.w, 10);
+    expect(nw.y + nw.h).toBeCloseTo(box.y + box.h, 10);
+  });
+
+  it("follows whichever axis the pointer moved further along, in proportion", () => {
+    // 7/40 is a bigger share of the height than 5/30 is of the width, so the
+    // height leads and the width is derived from it.
+    const led = applyDrag(box, "se", 5, 7, true);
+    expect(led.h).toBeCloseTo(47, 10);
+    expect(led.w).toBeCloseTo(47 * (box.w / box.h), 10);
+
+    const other = applyDrag(box, "se", 9, 1, true);
+    expect(other.w).toBeCloseTo(39, 10);
+    expect(other.h).toBeCloseTo(39 / (box.w / box.h), 10);
+  });
+
+  it("shrinks as well as grows", () => {
+    const r = applyDrag(box, "se", -6, -8, true);
+    expect(r.w).toBeLessThan(box.w);
+    expect(r.h).toBeLessThan(box.h);
+    expect(r.w / r.h).toBeCloseTo(box.w / box.h, 10);
+  });
+
+  it("is ignored for a move and for an edge handle, which have no shape to keep", () => {
+    expect(applyDrag(box, "move", 5, -5, true)).toEqual(applyDrag(box, "move", 5, -5));
+    expect(applyDrag(box, "e", 5, 99, true)).toEqual(applyDrag(box, "e", 5, 99));
+  });
+});
+
 describe("edgesFor", () => {
   it("maps each handle to the edges it moves", () => {
     expect(edgesFor("nw")).toEqual({ left: true, right: false, top: true, bottom: false });

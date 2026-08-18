@@ -220,3 +220,40 @@ describe("missing assets", () => {
     expect(warnings[0]?.detail).toContain("Bespoke.ttf");
   });
 });
+
+describe("image crop", () => {
+  const cropped = {
+    kind: "image" as const,
+    id: "c1",
+    x: 0,
+    y: 0,
+    w: 20,
+    h: 20,
+    z: 0,
+    imageId: null,
+    fit: "cover" as const,
+    opacity: 1,
+    zoom: 2.5,
+    focusX: 0.2,
+    focusY: 0.8,
+  };
+
+  it("carries the crop through to the renderers", () => {
+    const { scene } = resolveCard({ elements: [cropped], backgroundHex: null }, row, card(), opts);
+    expect(scene.elements[0]).toMatchObject({
+      kind: "image",
+      fit: "cover",
+      zoom: 2.5,
+      focusX: 0.2,
+      focusY: 0.8,
+    });
+  });
+
+  it("leaves the crop absent on a design written before it existed", () => {
+    const { zoom: _z, focusX: _x, focusY: _y, ...old } = cropped;
+    const { scene } = resolveCard({ elements: [old], backgroundHex: null }, row, card(), opts);
+    const el = scene.elements[0] as unknown as Record<string, unknown>;
+    expect(el["zoom"]).toBeUndefined();
+    expect(el["focusX"]).toBeUndefined();
+  });
+});

@@ -298,6 +298,12 @@ export function resolveCard(
           missingName,
           fit: el.fit,
           opacity: el.opacity,
+          // Spread, not defaulted: a design with no crop resolves to an element
+          // with no crop, so nothing downstream has to tell "centred" apart
+          // from "never cropped".
+          ...(el.zoom === undefined ? {} : { zoom: el.zoom }),
+          ...(el.focusX === undefined ? {} : { focusX: el.focusX }),
+          ...(el.focusY === undefined ? {} : { focusY: el.focusY }),
         });
         break;
       }
