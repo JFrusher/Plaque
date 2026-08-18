@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Rect } from "../types";
-import { fitImage } from "./imageFit";
+import { boxAtNaturalSize, boxFittedTo, boxWithAspect, fitImage } from "./imageFit";
 
 const BOX: Rect = { x: 10, y: 20, w: 40, h: 20 };
 /** Deliberately square, so a non-square box has to do the work. */
@@ -95,5 +95,78 @@ describe("fitImage", () => {
       });
       expect(fitImage(BOX, { w: 0, h: 0 }, { fit })).toMatchObject({ drawnW: 0, drawnH: 0 });
     }
+  });
+});
+
+describe("boxFittedTo", () => {
+  const bounds = { x: 0, y: 0, w: 85, h: 55 };
+
+  it("fills the bounds when the artwork has the same shape", () => {
+    expect(boxFittedTo(bounds, 85 / 55)).toEqual({ x: 0, y: 0, w: 85, h: 55 });
+  });
+
+  it("centres a square inside a landscape card", () => {
+    const box = boxFittedTo(bounds, 1);
+    expect(box).toEqual({ x: 15, y: 0, w: 55, h: 55 });
+  });
+
+  it("centres a wide artwork inside a landscape card", () => {
+    const box = boxFittedTo(bounds, 4);
+    expect(box.w).toBe(85);
+    expect(box.h).toBeCloseTo(21.25, 10);
+    expect(box.y).toBeCloseTo((55 - 21.25) / 2, 10);
+  });
+
+  it("fills the bounds outright when there is no aspect to keep", () => {
+    expect(boxFittedTo(bounds, null)).toEqual(bounds);
+  });
+
+  it("respects bounds that do not start at the origin, such as a tent panel", () => {
+    const panel = { x: 0, y: 55, w: 85, h: 55 };
+    expect(boxFittedTo(panel, 1)).toMatchObject({ x: 15, y: 55, w: 55, h: 55 });
+  });
+});
+
+describe("boxWithAspect", () => {
+  it("takes the artwork's shape while keeping the box's area and centre", () => {
+    const box = { x: 10, y: 10, w: 40, h: 10 };
+    const reshaped = boxWithAspect(box, 1);
+    expect(reshaped.w).toBe(reshaped.h);
+    expect(reshaped.w * reshaped.h).toBeCloseTo(400, 6);
+    expect(reshaped.x + reshaped.w / 2).toBeCloseTo(30, 10);
+    expect(reshaped.y + reshaped.h / 2).toBeCloseTo(15, 10);
+  });
+
+  it("leaves a box that already has the aspect alone", () => {
+    const box = { x: 10, y: 10, w: 40, h: 20 };
+    expect(boxWithAspect(box, 2)).toEqual(box);
+  });
+});
+
+describe("boxAtNaturalSize", () => {
+  const bounds = { x: 0, y: 0, w: 85, h: 55 };
+
+  it("sizes 300 pixels to an inch, centred on where the box was", () => {
+    // 600x300px at 300dpi is 2x1 inches: 50.8 x 25.4mm.
+    // Centred well inside the card, so the clamp below has nothing to do here.
+    const box = boxAtNaturalSize({ x: 30, y: 20, w: 4, h: 4 }, { w: 600, h: 300 }, bounds);
+    expect(box.w).toBeCloseTo(50.8, 6);
+    expect(box.h).toBeCloseTo(25.4, 6);
+    expect(box.x + box.w / 2).toBeCloseTo(32, 6);
+  });
+
+  it("shrinks artwork too big for the card, keeping its shape", () => {
+    const box = boxAtNaturalSize({ x: 0, y: 0, w: 10, h: 10 }, { w: 6000, h: 3000 }, bounds);
+    expect(box.w).toBeLessThanOrEqual(85);
+    expect(box.h).toBeLessThanOrEqual(55);
+    expect(box.w / box.h).toBeCloseTo(2, 10);
+  });
+
+  it("keeps the box inside the bounds when its centre is at the edge", () => {
+    const box = boxAtNaturalSize({ x: 84, y: 54, w: 1, h: 1 }, { w: 600, h: 300 }, bounds);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.w).toBeLessThanOrEqual(85 + 1e-9);
+    expect(box.y + box.h).toBeLessThanOrEqual(55 + 1e-9);
   });
 });

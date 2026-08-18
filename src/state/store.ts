@@ -94,8 +94,16 @@ export interface PlaqueState extends Snapshot {
    */
   editingSide: CardSide;
   selectedId: ElementId | null;
+  /**
+   * The image element whose crop is being dragged on the canvas, if any.
+   * Transient by design: it is a pointer mode, not part of the design, so it is
+   * neither persisted nor snapshotted for undo.
+   */
+  cropId: ElementId | null;
   page: number;
   snapEnabled: boolean;
+  /** Collapses the sheet pane, giving the card the whole workspace. */
+  sheetCollapsed: boolean;
   previewGuestIndex: number;
 
   past: Snapshot[];
@@ -123,6 +131,12 @@ export interface PlaqueState extends Snapshot {
   beginEdit: () => void;
   /** Live drag updates. Deliberately does NOT touch history. */
   setElementBox: (id: ElementId, box: Rect) => void;
+  /**
+   * Pans or zooms the artwork inside an image element. Like `setElementBox`,
+   * it records no history of its own: the canvas calls `beginEdit` once as the
+   * gesture starts, so one crop is one undo entry rather than sixty.
+   */
+  setElementCrop: (id: ElementId, patch: { zoom?: number; focusX?: number; focusY?: number }) => void;
   removeElement: (id: ElementId) => void;
   duplicateElement: (id: ElementId) => void;
   raiseElement: (id: ElementId) => void;
@@ -148,9 +162,12 @@ export interface PlaqueState extends Snapshot {
 
   setEditingSide: (side: CardSide) => void;
   select: (id: ElementId | null) => void;
+  /** Enters or leaves crop mode. Leaving is `null`. */
+  setCropId: (id: ElementId | null) => void;
   setPage: (page: number) => void;
   setPreviewGuestIndex: (index: number) => void;
   toggleSnap: () => void;
+  toggleSheetCollapsed: () => void;
 
   undo: () => void;
   redo: () => void;
@@ -207,8 +224,10 @@ export const usePlaque = create<PlaqueState>()((set) => {
     activePrinterId: null,
     editingSide: "front",
     selectedId: null,
+    cropId: null,
     page: 0,
     snapEnabled: true,
+    sheetCollapsed: false,
     previewGuestIndex: 0,
     past: [],
     future: [],
@@ -372,6 +391,9 @@ export const usePlaque = create<PlaqueState>()((set) => {
         },
       })),
 
+    setElementCrop: (id, patch) =>
+      set((s) => ({ template: replaceElement(s, id, patch as Partial<CardElement>) })),
+
     removeElement: (id) =>
       commit((s) => ({
         template: { ...s.template, elements: s.template.elements.filter((el) => el.id !== id) },
@@ -509,10 +531,14 @@ export const usePlaque = create<PlaqueState>()((set) => {
 
     setActivePrinter: (activePrinterId) => set({ activePrinterId }),
 
-    select: (selectedId) => set({ selectedId }),
+    // Selecting something else leaves crop mode: a crop drag belongs to the
+    // element that was being cropped, and nothing else.
+    select: (selectedId) => set((s) => ({ selectedId, cropId: s.cropId === selectedId ? s.cropId : null })),
+    setCropId: (cropId) => set({ cropId }),
     setPage: (page) => set({ page }),
     setPreviewGuestIndex: (previewGuestIndex) => set({ previewGuestIndex }),
     toggleSnap: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
+    toggleSheetCollapsed: () => set((s) => ({ sheetCollapsed: !s.sheetCollapsed })),
 
     undo: () =>
       set((s) => {

@@ -1,10 +1,33 @@
 import { useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type { ImageElement } from "../../core/types";
+import { boxWithAspect } from "../../core/template/imageFit";
 import { deleteImage, readImageFile, release, saveImage, toSource } from "../../state/imageStore";
 import { usePlaque } from "../../state/store";
 import { Hint, Panel } from "../controls";
 import styles from "./ImagesPanel.module.css";
+
+/** The box an element is created with, before anyone has touched it. */
+const DEFAULT_SIDE_MM = 24;
+
+/**
+ * Reshapes a still-default box to the artwork's proportions.
+ *
+ * Only a box nobody has sized yet: a square default is a placeholder, but any
+ * box the user has dragged is a decision, and silently rewriting it would be
+ * the app overruling them.
+ */
+function shapedFor(
+  element: ImageElement,
+  artwork: { naturalW: number; naturalH: number },
+): { x: number; y: number; w: number; h: number } | Record<string, never> {
+  const untouched = element.w === DEFAULT_SIDE_MM && element.h === DEFAULT_SIDE_MM;
+  if (!untouched || artwork.naturalH <= 0) return {};
+  return boxWithAspect(
+    { x: element.x, y: element.y, w: element.w, h: element.h },
+    artwork.naturalW / artwork.naturalH,
+  );
+}
 
 /**
  * Uploaded artwork — a monogram, crest or venue mark. The same image goes on
@@ -41,7 +64,7 @@ export function ImagesPanel() {
       addImage(source, stored.name);
       await saveImage(stored);
       // An image element is almost certainly why the user uploaded this.
-      if (selected) updateElement(selected.id, { imageId: source.id });
+      if (selected) updateElement(selected.id, { imageId: source.id, ...shapedFor(selected, stored) });
     } catch (e) {
       setError(e instanceof Error ? e.message : "That image could not be read.");
     } finally {
@@ -92,9 +115,14 @@ export function ImagesPanel() {
               <span className={styles.name}>{imageNames[source.id] ?? source.id}</span>
               <span className={styles.actions}>
                 {selected && (
-                  <button
+                    <button
                     type="button"
-                    onClick={() => updateElement(selected.id, { imageId: source.id })}
+                    onClick={() =>
+                      updateElement(selected.id, {
+                        imageId: source.id,
+                        ...shapedFor(selected, source),
+                      })
+                    }
                   >
                     Use
                   </button>

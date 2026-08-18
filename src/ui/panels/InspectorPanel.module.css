@@ -40,3 +40,31 @@
   color: var(--grey-8);
   font-weight: 600;
 }
+
+/* Sizing shortcuts for image artwork: one press instead of four numbers. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+}
+
+.action {
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 3px);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.action:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

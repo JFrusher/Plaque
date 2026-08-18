@@ -9,9 +9,10 @@ import { hasBackSide, templateForSide } from "./core/imposition/duplex";
 import { templateForRow } from "./core/template/overrides";
 import { PAPER_WHITE, contrastIssues } from "./core/print/contrast";
 import { missingAssets } from "./core/template/assets";
+import { overflowIssues } from "./core/template/overflow";
 import { unboundTokens } from "./core/template/rebind";
 import { makeResolveOptions } from "./core/template/resolve";
-import { CardCanvas } from "./render/svg/CardCanvas";
+import { CardCanvas, MAX_VIEW_ZOOM } from "./render/svg/CardCanvas";
 import { SheetPreview } from "./render/svg/SheetPreview";
 import { loadFonts as loadStoredFonts } from "./state/blobStore";
 import { loadImages, toSource } from "./state/imageStore";
@@ -66,6 +67,7 @@ function autosavePayload(): SaveInput {
     uploadedIcons: s.uploadedIcons,
     assetNames: s.assetNames,
     snapEnabled: s.snapEnabled,
+    sheetCollapsed: s.sheetCollapsed,
     past: s.past,
     future: s.future,
   };
@@ -110,7 +112,9 @@ export function App() {
     fileName,
     page,
     selectedId,
+    cropId,
     snapEnabled,
+    sheetCollapsed,
     previewGuestIndex,
     editingSide,
     printers,
@@ -133,7 +137,9 @@ export function App() {
       fileName: s.fileName,
       page: s.page,
       selectedId: s.selectedId,
+      cropId: s.cropId,
       snapEnabled: s.snapEnabled,
+      sheetCollapsed: s.sheetCollapsed,
       previewGuestIndex: s.previewGuestIndex,
       editingSide: s.editingSide,
       printers: s.printers,
@@ -144,7 +150,20 @@ export function App() {
   );
 
   // Actions never change identity in zustand, so they are read once.
-  const { select, beginEdit, setElementBox, setPage, setPreviewGuestIndex } = usePlaque.getState();
+  const {
+    select,
+    beginEdit,
+    setElementBox,
+    setElementCrop,
+    setCropId,
+    setPage,
+    setPreviewGuestIndex,
+    toggleSheetCollapsed,
+  } = usePlaque.getState();
+
+  // How much bigger than "fits the pane" the card is drawn. View state, not
+  // design: it belongs to this window and is not worth persisting.
+  const [zoom, setZoom] = useState(1);
 
   // Load fonts and any saved design once, before the first render of the canvas.
   useEffect(() => {
@@ -240,6 +259,7 @@ export function App() {
     rows,
     uploadedIcons,
     snapEnabled,
+    sheetCollapsed,
     csvIssues,
     fileName,
     past,
@@ -265,6 +285,16 @@ export function App() {
       document.removeEventListener("visibilitychange", flushIfHidden);
     };
   }, [ready]);
+
+  // Esc leaves crop mode, the way it leaves every other transient mode.
+  useEffect(() => {
+    if (!cropId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCropId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cropId, setCropId]);
 
   const resolveOptions = useMemo(
     () => makeResolveOptions(fonts, uploadedIcons, images, assetNames),
@@ -308,10 +338,13 @@ export function App() {
   // Only the sheet on screen is imposed. Building all nineteen on every drag
   // frame is what put the editor under 60fps.
   const currentSheet = useMemo(() => {
+    // A collapsed pane imposes nothing. On a big job that is the difference
+    // between a keystroke costing one card and costing a whole sheet.
+    if (sheetCollapsed) return undefined;
     const range = { from: pageIndex, to: pageIndex };
     const front = templateForSide(template, "front");
     return paginate(front, artefacts, card, sheet, resolveOptions, { pages: range }).sheets[0];
-  }, [template, artefacts, card, sheet, resolveOptions, pageIndex]);
+  }, [template, artefacts, card, sheet, resolveOptions, pageIndex, sheetCollapsed]);
 
   // The "these names do not fit" pass has to look at every guest, so it runs at
   // a lower priority: it may lag a drag by a frame, but it never blocks one.
@@ -349,13 +382,20 @@ export function App() {
           : "marginal on this stock in poor light."
       }`,
     }));
+    // Advisory: artwork can be run off the edge on purpose. Finding out from
+    // the cut sheet is what this exists to prevent.
+    const overflow = overflowIssues(template.elements, card).map((issue) => ({
+      id: `overflow-${issue.elementId}-${issue.kind}`,
+      severity: "warning" as const,
+      message: issue.detail,
+    }));
     const unbound = unboundTokens(template, headers).map((token) => ({
       id: `unbound-${token}`,
       severity: "error" as const,
       message: `Nothing in this CSV is called "${token}", so it will print as a gap. Rename the column or edit the element.`,
     }));
-    return [...geometryIssues, ...contrast, ...unbound];
-  }, [geometryIssues, template, headers]);
+    return [...geometryIssues, ...contrast, ...overflow, ...unbound];
+  }, [geometryIssues, template, headers, card]);
 
   if (!isDesktop) return <DesktopGate />;
   if (!ready) return <p className={styles.status}>Loading fonts…</p>;
@@ -400,7 +440,7 @@ export function App() {
           );
         })}
 
-        <div className={styles.workspace}>
+        <div className={sheetCollapsed ? `${styles.workspace} ${styles.workspaceWide}` : styles.workspace}>
           <section className={styles.pane} aria-label="Card">
             <h2 className={styles.paneTitle}>
               Card{hasBackSide(template) ? ` — ${editingSide}` : ""}
@@ -410,6 +450,29 @@ export function App() {
                   {previewArtefact?.label} — {previewGuestIndex + 1} of {artefacts.length}
                 </span>
               )}
+              {cropId && <span className={styles.cropBadge}>Cropping — drag the artwork, Esc to finish</span>}
+              <span className={styles.paneTools}>
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.max(1, z / 1.25))}
+                  disabled={zoom <= 1}
+                  aria-label="Zoom out"
+                >
+                  −
+                </button>
+                <span className={styles.zoomValue}>{Math.round(zoom * 100)}%</span>
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.min(MAX_VIEW_ZOOM, z * 1.25))}
+                  disabled={zoom >= MAX_VIEW_ZOOM}
+                  aria-label="Zoom in"
+                >
+                  +
+                </button>
+                <button type="button" onClick={() => setZoom(1)} disabled={zoom === 1}>
+                  Fit
+                </button>
+              </span>
             </h2>
             <div className={styles.paneBody}>
               <CardCanvas
@@ -421,9 +484,14 @@ export function App() {
                 resolveOptions={resolveOptions}
                 selectedId={selectedId}
                 snapEnabled={snapEnabled}
+                cropId={cropId}
+                zoom={zoom}
                 onSelect={select}
                 onEditStart={beginEdit}
                 onChange={setElementBox}
+                onCrop={setElementCrop}
+                onZoomChange={setZoom}
+                onRequestCrop={setCropId}
               />
             </div>
             <Pagination
@@ -433,17 +501,37 @@ export function App() {
             />
           </section>
 
-          <section className={styles.pane} aria-label="Sheet">
-            <h2 className={styles.paneTitle}>Sheet</h2>
-            <div className={styles.paneBody}>
-              {currentSheet ? (
-                <SheetPreview sheet={currentSheet} fonts={fonts} className={styles.sheet} />
-              ) : (
-                <p className={styles.empty}>Nothing to impose yet.</p>
-              )}
-            </div>
-            <Pagination index={pageIndex} count={sheetCount} onChange={setPage} />
-          </section>
+          {sheetCollapsed ? (
+            <section className={styles.strip} aria-label="Sheet">
+              <button
+                type="button"
+                className={styles.stripButton}
+                onClick={toggleSheetCollapsed}
+                aria-expanded={false}
+              >
+                Sheet
+              </button>
+            </section>
+          ) : (
+            <section className={styles.pane} aria-label="Sheet">
+              <h2 className={styles.paneTitle}>
+                Sheet
+                <span className={styles.paneTools}>
+                  <button type="button" onClick={toggleSheetCollapsed} aria-expanded>
+                    Hide
+                  </button>
+                </span>
+              </h2>
+              <div className={styles.paneBody}>
+                {currentSheet ? (
+                  <SheetPreview sheet={currentSheet} fonts={fonts} className={styles.sheet} />
+                ) : (
+                  <p className={styles.empty}>Nothing to impose yet.</p>
+                )}
+              </div>
+              <Pagination index={pageIndex} count={sheetCount} onChange={setPage} />
+            </section>
+          )}
         </div>
 
         <RowsDrawer

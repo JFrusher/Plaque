@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { buildArtefacts } from "../../core/data/artefacts";
+import { panelBounds, panelOf } from "../../core/geometry/fold";
+import { boxAtNaturalSize, boxFittedTo, boxWithAspect, MAX_ZOOM } from "../../core/template/imageFit";
 import { templateForRow, type ElementPatch } from "../../core/template/overrides";
 import { DEFAULT_OPTICAL, NOTABLE_FEATURES, availableFeatures } from "../../core/text/optical";
 import type { LoadedFont } from "../../core/text/measure";
@@ -45,6 +47,10 @@ export function InspectorPanel() {
     template,
     rowId,
     rowLabel,
+    card,
+    images,
+    cropId,
+    setCropId,
   } = usePlaque(
     useShallow((s) => {
       const scope = s.template.rowScope ?? { kind: "per-row" as const };
@@ -64,6 +70,10 @@ export function InspectorPanel() {
         template: s.template,
         rowId: artefact?.rowId ?? null,
         rowLabel: artefact?.label ?? "",
+        card: s.card,
+        images: s.images,
+        cropId: s.cropId,
+        setCropId: s.setCropId,
       };
     }),
   );
@@ -167,30 +177,120 @@ export function InspectorPanel() {
         </>
       )}
 
-      {element.kind === "image" && (
-        <>
-          <SelectField<ImageFit>
-            label="Fit"
-            value={element.fit}
-            options={[
-              { value: "contain", label: "Fit inside, keep shape" },
-              { value: "stretch", label: "Fill the box" },
-            ]}
-            onChange={(fit) => patch({ fit })}
-          />
-          <NumberField
-            label="Opacity"
-            value={element.opacity}
-            step={0.05}
-            min={0}
-            max={1}
-            onChange={(opacity) => patch({ opacity: Math.max(0, Math.min(1, opacity)) })}
-          />
-          <Hint>
-            {element.imageId ? "Change the artwork under Images." : "Upload artwork under Images."}
-          </Hint>
-        </>
-      )}
+      {element.kind === "image" &&
+        (() => {
+          const source = element.imageId ? images.get(element.imageId) : undefined;
+          const aspect = source ? source.naturalW / source.naturalH : null;
+          const box = { x: element.x, y: element.y, w: element.w, h: element.h };
+          // A tent card's panel, not the whole card: fitting across the crease
+          // is never what "fit" means on a folded card.
+          const panel = panelBounds(panelOf(box, card), card);
+          const wholeCard = { x: 0, y: 0, w: card.widthMm, h: card.heightMm };
+          // Stretch has no shape to keep, so a fit action fills the bounds.
+          const shape = element.fit === "stretch" ? null : aspect;
+          const cropping = cropId === element.id;
+
+          return (
+            <>
+              <SelectField<ImageFit>
+                label="Fit"
+                value={element.fit}
+                options={[
+                  { value: "contain", label: "Fit inside, keep shape" },
+                  { value: "cover", label: "Fill the box, crop the rest" },
+                  { value: "stretch", label: "Stretch to the box" },
+                ]}
+                onChange={(fit) => {
+                  patch({ fit });
+                  if (fit !== "cover" && cropping) setCropId(null);
+                }}
+              />
+
+              {element.fit === "cover" && (
+                <>
+                  <NumberField
+                    label="Crop zoom"
+                    value={element.zoom ?? 1}
+                    step={0.1}
+                    min={1}
+                    max={MAX_ZOOM}
+                    onChange={(zoom) =>
+                      patch({ zoom: Math.max(1, Math.min(MAX_ZOOM, zoom)) })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className={styles.action}
+                    disabled={!source}
+                    onClick={() => setCropId(cropping ? null : element.id)}
+                  >
+                    {cropping ? "Finish cropping" : "Crop"}
+                  </button>
+                  <Hint>
+                    {cropping
+                      ? "Drag the artwork to choose what shows. The wheel zooms. Esc finishes."
+                      : "Or double-click the image on the card."}
+                  </Hint>
+                </>
+              )}
+
+              <NumberField
+                label="Opacity"
+                value={element.opacity}
+                step={0.05}
+                min={0}
+                max={1}
+                onChange={(opacity) => patch({ opacity: Math.max(0, Math.min(1, opacity)) })}
+              />
+
+              <div className={styles.actions}>
+                <button
+                  type="button"
+                  className={styles.action}
+                  onClick={() => patch(boxFittedTo(wholeCard, shape))}
+                >
+                  Fit to card
+                </button>
+                {card.fold !== "none" && (
+                  <button
+                    type="button"
+                    className={styles.action}
+                    onClick={() => patch(boxFittedTo(panel, shape))}
+                  >
+                    Fit to panel
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={styles.action}
+                  disabled={!aspect}
+                  onClick={() => aspect && patch(boxWithAspect(box, aspect))}
+                >
+                  Match artwork shape
+                </button>
+                <button
+                  type="button"
+                  className={styles.action}
+                  disabled={!source}
+                  onClick={() =>
+                    source &&
+                    patch(
+                      boxAtNaturalSize(box, { w: source.naturalW, h: source.naturalH }, wholeCard),
+                    )
+                  }
+                >
+                  Natural size
+                </button>
+              </div>
+
+              <Hint>
+                {element.imageId
+                  ? "Change the artwork under Images."
+                  : "Upload artwork under Images."}
+              </Hint>
+            </>
+          );
+        })()}
 
       {(element.kind === "rect" || element.kind === "line") && (
         <>

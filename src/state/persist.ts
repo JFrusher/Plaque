@@ -37,6 +37,8 @@ export interface Persisted {
   fileName: string | null;
   uploadedIcons: Record<string, string>;
   snapEnabled: boolean;
+  /** Workspace layout, not design: which pane the user last chose to see. */
+  sheetCollapsed?: boolean;
   /** Filenames of uploaded assets, so a lost blob can still be named (S-D1.4). */
   assetNames: Record<string, string>;
   past: Snapshot[];
@@ -148,6 +150,8 @@ export function load(raw: string | null): LoadResult {
       ...data,
       version: VERSION,
       savedAt: typeof data.savedAt === "string" ? data.savedAt : null,
+      // Absent in anything written before the sheet pane could be collapsed.
+      sheetCollapsed: parsed["sheetCollapsed"] === true,
       assetNames: isRecord(parsed["assetNames"])
         ? (parsed["assetNames"] as Record<string, string>)
         : {},

@@ -135,3 +135,71 @@
   padding: var(--sp-6);
   color: var(--text-muted);
 }
+
+/* The sheet pane collapsed to a spine, so the card gets the whole workspace. */
+.workspaceWide {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.paneTools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-left: auto;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.paneTools button {
+  min-width: 1.75rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 3px);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.paneTools button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.zoomValue {
+  min-width: 3.25rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cropBadge {
+  color: var(--accent);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.strip {
+  display: grid;
+  align-content: start;
+  border-left: 1px solid var(--border);
+}
+
+.stripButton {
+  padding: var(--sp-4) var(--sp-2);
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+  cursor: pointer;
+}
+
+.stripButton:hover {
+  color: var(--text);
+}
