@@ -17,3 +17,5 @@ scratch/
 # PDFs built by the CLI land next to their input or at the repo root.
 /*.pdf
 fixtures/*.pdf
+
+PRD.md

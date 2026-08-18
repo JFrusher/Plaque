@@ -88,28 +88,3 @@ These are enforced, not just documented: `src/invariants.test.ts` fails the
 build if a second file flips the y axis, if anything but `core/text/measure`
 imports fontkit, if a renderer decides a size, or if `core/` reaches for React
 or the DOM.
-
-## Extending it
-
-Nothing below needs a change to the engine:
-
-| To add | Edit | Checked by |
-|---|---|---|
-| A card size or product | `src/data/card-presets.json` | data gate + `cardPresets.test.ts` |
-| Pre-cut stock (label sheets, badge inserts) | `src/data/stock-presets.json` | data gate + `stockPresets.test.ts` |
-| A starter design | a new file in `templates/` | `gallery.test.ts` builds it against the fixtures |
-| An element kind | `src/core/template/registry.ts`, plus the two renderer switches | TypeScript exhaustiveness + `registry.test.ts` |
-
-Full design spec:
-[docs/superpowers/specs/2026-08-17-plaque-design.md](docs/superpowers/specs/2026-08-17-plaque-design.md)
-
-## Not in this version
-
-Per-guest overrides · per-guest images from a column · multi-select in the
-editor · `.woff2` uploads · double-sided printing · a print button (the PDF
-downloads, then you print it) · menus and table numbers · touch editing.
-
-## Licence
-
-MIT. Bundled fonts and icons carry their own licences — see
-[src/assets/fonts/LICENSES.md](src/assets/fonts/LICENSES.md).
