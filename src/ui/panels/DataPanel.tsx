@@ -4,7 +4,7 @@ import { parseCsv } from "../../core/csv/parse";
 import { buildArtefacts } from "../../core/data/artefacts";
 import type { RowScope } from "../../core/types";
 import { usePlaque } from "../../state/store";
-import { Hint, Panel, SelectField } from "../controls";
+import { Hint, SelectField, SubGroup } from "../controls";
 import styles from "./DataPanel.module.css";
 
 const PER_ROW: RowScope = { kind: "per-row" };
@@ -62,7 +62,7 @@ export function DataPanel() {
   }
 
   return (
-    <Panel title="Guest list">
+    <>
       <div
         className={over ? `${styles.drop} ${styles.over}` : styles.drop}
         onDragOver={(e) => {
@@ -120,13 +120,15 @@ export function DataPanel() {
       )}
 
       {headers.length > 0 && (
-        <div className={styles.tokens}>
-          {headers.map((h) => (
-            <code key={h} className={styles.token} title="Use this in any text element">
-              {`{{${h}}}`}
-            </code>
-          ))}
-        </div>
+        <SubGroup title={`Columns (${headers.length})`}>
+          <div className={styles.tokens}>
+            {headers.map((h) => (
+              <code key={h} className={styles.token} title="Use this in any text element">
+                {`{{${h}}}`}
+              </code>
+            ))}
+          </div>
+        </SubGroup>
       )}
 
       {csvIssues.length > 0 && (
@@ -142,6 +144,6 @@ export function DataPanel() {
           </ul>
         </details>
       )}
-    </Panel>
+    </>
   );
 }

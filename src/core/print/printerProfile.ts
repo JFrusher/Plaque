@@ -59,16 +59,69 @@ export function backCorrection(profile: PrinterProfile | null | undefined): { dx
  *
  * See render/pdf/duplexTestPdf for why the printed labels run the way they do.
  */
-export function readingToCorrection(reading: number): Mm {
-  if (!Number.isFinite(reading)) return 0;
-  return Math.max(-MAX_BACK_OFFSET_MM, Math.min(MAX_BACK_OFFSET_MM, Math.round(reading * 10) / 10));
+export function readingToCorrection(reading: number, existingMm: Mm = 0): Mm {
+  if (!Number.isFinite(reading)) return finite(existingMm);
+  const total = finite(existingMm) + reading;
+  return Math.max(-MAX_BACK_OFFSET_MM, Math.min(MAX_BACK_OFFSET_MM, Math.round(total * 10) / 10));
 }
 
 /** Past this it is a paper-feed fault, not registration drift, and the scales run out. */
 export const MAX_BACK_OFFSET_MM = 10;
 
+/** How far either way the printed scales actually run. A reading past this is a misread. */
+export const READABLE_SPAN_MM = MAX_BACK_OFFSET_MM / 2;
+
 /** A difference this large between the two reading stations is skew, not offset. */
 export const SKEW_THRESHOLD_MM = 1;
+
+/** What the user reads off the back of the test sheet. Blank fields are 0. */
+export interface DuplexReadings {
+  aAcross: Mm;
+  aDown: Mm;
+  bAcross: Mm;
+  bDown: Mm;
+}
+
+export interface DuplexCorrection {
+  /** The new total to store, existing correction included. */
+  dx: Mm;
+  dy: Mm;
+  /** How far the two stations disagree — translation cannot fix this part. */
+  skewMm: Mm;
+  skewed: boolean;
+}
+
+/**
+ * Turns four readings into the correction to store.
+ *
+ * Two things matter here and both are easy to get wrong by hand.
+ *
+ * **The readings ADD to what is already stored.** The test sheet is printed
+ * with the current correction already applied, so a retest measures what is
+ * *left*, not the whole error. Replacing rather than adding throws away a good
+ * correction the moment the user does the honest thing and retests.
+ *
+ * **Both stations get averaged.** A pure translation reads the same at A and B,
+ * so their mean is the best estimate of it and their difference is skew — which
+ * no amount of shifting can remove, so it is reported rather than absorbed.
+ */
+export function correctionFromReadings(
+  readings: DuplexReadings,
+  existing: { dx: Mm; dy: Mm },
+): DuplexCorrection {
+  const mean = (a: number, b: number) => (finite(a) + finite(b)) / 2;
+  const spread = (a: number, b: number) => Math.abs(finite(a) - finite(b));
+  const skewMm = Math.round(
+    Math.max(spread(readings.aAcross, readings.bAcross), spread(readings.aDown, readings.bDown)) * 10,
+  ) / 10;
+
+  return {
+    dx: readingToCorrection(mean(readings.aAcross, readings.bAcross), existing.dx),
+    dy: readingToCorrection(mean(readings.aDown, readings.bDown), existing.dy),
+    skewMm,
+    skewed: skewMm > SKEW_THRESHOLD_MM,
+  };
+}
 
 function finite(value: number | null | undefined): Mm {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;

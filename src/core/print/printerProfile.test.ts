@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_BACK_OFFSET_MM,
+  correctionFromReadings,
   backCorrection,
   describeScale,
   effectiveScale,
@@ -106,6 +107,49 @@ describe("back-side registration", () => {
   it("clamps a reading that cannot have come from the scale", () => {
     expect(readingToCorrection(400)).toBe(MAX_BACK_OFFSET_MM);
     expect(readingToCorrection(-400)).toBe(-MAX_BACK_OFFSET_MM);
+  });
+});
+
+describe("correctionFromReadings", () => {
+  const none = { dx: 0, dy: 0 };
+
+  it("averages the two stations, because a shift reads the same at both", () => {
+    const next = correctionFromReadings(
+      { aAcross: 1, aDown: -2, bAcross: 1.4, bDown: -2.4 },
+      none,
+    );
+    expect(next).toMatchObject({ dx: 1.2, dy: -2.2, skewed: false });
+  });
+
+  it("ADDS to the correction already applied — a retest measures what is left", () => {
+    // The sheet is printed with the stored correction baked in, so replacing
+    // rather than adding would throw away a good correction on every retest.
+    const next = correctionFromReadings(
+      { aAcross: -0.3, aDown: 0, bAcross: -0.3, bDown: 0 },
+      { dx: 1.5, dy: -0.5 },
+    );
+    expect(next.dx).toBe(1.2);
+    expect(next.dy).toBe(-0.5);
+  });
+
+  it("leaves a good correction alone when the retest reads zero", () => {
+    const existing = { dx: 1.5, dy: -0.5 };
+    const next = correctionFromReadings({ aAcross: 0, aDown: 0, bAcross: 0, bDown: 0 }, existing);
+    expect(next).toMatchObject(existing);
+  });
+
+  it("reports stations that disagree as skew, which shifting cannot fix", () => {
+    const next = correctionFromReadings({ aAcross: 2, aDown: 0, bAcross: -1, bDown: 0 }, none);
+    expect(next.skewMm).toBe(3);
+    expect(next.skewed).toBe(true);
+  });
+
+  it("still clamps the running total to something a printer could do", () => {
+    const next = correctionFromReadings(
+      { aAcross: 5, aDown: 0, bAcross: 5, bDown: 0 },
+      { dx: MAX_BACK_OFFSET_MM, dy: 0 },
+    );
+    expect(next.dx).toBe(MAX_BACK_OFFSET_MM);
   });
 });
 

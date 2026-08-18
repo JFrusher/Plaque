@@ -3,6 +3,7 @@ import { DEFAULT_FONT_ID } from "../assets/fonts";
 import type { CsvIssue, GuestRow } from "../core/csv/parse";
 import { defaultRowIds } from "../core/data/artefacts";
 import { defaultFoldPosition } from "../core/geometry/fold";
+import { sideOf } from "../core/imposition/duplex";
 import type { LayoutSuggestion } from "../core/geometry/suggestLayouts";
 import { defaultCard, defaultSheet, defaultTemplate, newId } from "../core/template/defaults";
 import {
@@ -139,6 +140,8 @@ export interface PlaqueState extends Snapshot {
   setElementCrop: (id: ElementId, patch: { zoom?: number; focusX?: number; focusY?: number }) => void;
   removeElement: (id: ElementId) => void;
   duplicateElement: (id: ElementId) => void;
+  /** Replaces the back with a copy of the front, for cards read from either side. */
+  copyFrontToBack: () => void;
   raiseElement: (id: ElementId) => void;
   lowerElement: (id: ElementId) => void;
 
@@ -408,6 +411,51 @@ export const usePlaque = create<PlaqueState>()((set) => {
         return {
           template: { ...s.template, elements: [...s.template.elements, copy] },
           selectedId: copy.id,
+        };
+      }),
+
+    /**
+     * A flat place card that has to be readable from both seats: the back is
+     * the same design, not a mirror of it.
+     *
+     * Card-relative coordinates are copied verbatim on purpose. The back sheet
+     * is mirrored by SLOT in core/imposition/duplex, so a back element at the
+     * same card coordinates lands exactly behind its front twin — and then
+     * takes the printer's registration correction with it.
+     *
+     * One-shot, and re-runnable: the back is replaced outright, so changing the
+     * front and pressing again re-syncs it. Per-row overrides are copied across
+     * to the new ids, or the back would print the raw CSV value where the front
+     * prints an edited one.
+     */
+    copyFrontToBack: () =>
+      commit((s) => {
+        const fronts = s.template.elements.filter((el) => sideOf(el) === "front");
+        if (fronts.length === 0) return {};
+
+        const copyIdFor = new Map(fronts.map((el) => [el.id, newId()]));
+        const backs = fronts.map((el) => ({ ...el, id: copyIdFor.get(el.id)!, side: "back" as const }));
+
+        const overrides = Object.fromEntries(
+          Object.entries(s.template.overrides ?? {}).map(([rowId, byElement]) => [
+            rowId,
+            // Only front ids survive, so this also sweeps up patches left behind
+            // by the back elements this replaces.
+            Object.fromEntries(
+              Object.entries(byElement).flatMap(([elementId, patch]) => {
+                const copyId = copyIdFor.get(elementId);
+                return copyId ? [[elementId, patch], [copyId, patch]] : [];
+              }),
+            ),
+          ]),
+        );
+
+        return {
+          template: { ...s.template, elements: [...fronts, ...backs], overrides },
+          // The copy is pointless unless the sheet actually prints two sides.
+          sheet: { ...s.sheet, duplex: true },
+          editingSide: "back",
+          selectedId: null,
         };
       }),
 

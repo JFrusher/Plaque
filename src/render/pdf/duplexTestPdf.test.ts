@@ -72,19 +72,24 @@ describe("duplexTestPdf", () => {
     const longWitness = witnessOf(long.pages[1]!)!;
     const shortWitness = witnessOf(short.pages[1]!)!;
 
-    // Front ★ is near the top-left, so: long flip puts the box near the top
-    // right, short flip near the bottom left.
-    expect(longWitness.x).toBeGreaterThan(mmToPt(105));
-    expect(longWitness.y).toBeGreaterThan(mmToPt(148.5));
-    expect(shortWitness.x).toBeLessThan(mmToPt(105));
-    expect(shortWitness.y).toBeLessThan(mmToPt(148.5));
+    // Long flip mirrors x, so the mark stays at the foot of the page and its box
+    // does too; short flip mirrors y and the box lands mid-height instead.
+    expect(longWitness.y).toBeLessThan(mmToPt(50));
+    expect(shortWitness.y).toBeGreaterThan(mmToPt(100));
+    expect(Math.abs(longWitness.y - shortWitness.y)).toBeGreaterThan(mmToPt(50));
+
+    // Whichever way it mirrors, it must clear the instruction band at the head
+    // of the page — text printed over the witness box makes it unreadable.
+    for (const witness of [longWitness, shortWitness]) {
+      expect(witness.y).toBeLessThan(mmToPt(297 - 50));
+    }
   });
 
   it("says when it is already correcting, so a re-test is readable", async () => {
     const { pages } = await read(
       await duplexTestPdf({ ...base, backOffsetXMm: -1.5, backOffsetYMm: 0.5 }),
     );
-    expect(pages[1]?.text).toContain("-1.5mm right");
+    expect(pages[1]?.text).toContain("-1.5mm across");
     expect(pages[1]?.text).toContain("0.5mm down");
     expect(pages[1]?.text).toContain("should now read 0");
   });

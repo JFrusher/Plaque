@@ -1,8 +1,8 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { mirrorAxisFor, type FlipEdge } from "../../core/imposition/duplex";
-import { MAX_BACK_OFFSET_MM } from "../../core/print/printerProfile";
+import { READABLE_SPAN_MM, SKEW_THRESHOLD_MM } from "../../core/print/printerProfile";
 import type { Mm, Orientation, PageSizeName, Point } from "../../core/types";
-import { mmToPt, pageSizeMm } from "../../core/units";
+import { mmToPt, pageSizeMm, ptToMm } from "../../core/units";
 
 export interface DuplexTestOptions {
   page: PageSizeName;
@@ -17,14 +17,15 @@ export interface DuplexTestOptions {
 /**
  * Two pages that answer both duplex questions in one print (B3).
  *
- * **Is the flip edge right?** The front carries a single ★ near one corner. The
- * back says, at the position that same corner lands on for the chosen flip edge,
- * that the ★ should be behind it. One glance settles it.
+ * **Is the flip edge right?** The front carries a single solid witness mark. The
+ * back draws an empty box at the position that mark lands on for the chosen flip
+ * edge. Mark inside box means the edge is right; one glance settles it.
  *
  * **How far out is the registration?** The front carries plain crosshairs at two
  * stations. The back carries numbered scales centred on where those crosshairs
- * should fall. Hold the sheet to a window, read the number the front's line
- * crosses, and type it in — that number *is* the correction.
+ * should fall — four in all, named on the sheet exactly as they are named in the
+ * app. Hold the sheet to a window, read where the front's line crosses each, and
+ * type the numbers in; those numbers *are* the correction.
  *
  * ### Why the numbers read the way they do
  *
@@ -38,6 +39,11 @@ export interface DuplexTestOptions {
  *
  * Two stations, not one, so skew is visible: a translation cannot fix a sheet
  * that went through crooked, and the sheet says so.
+ *
+ * A retest is printed with the stored correction already applied, so its scales
+ * measure what is LEFT rather than the whole error. That is why the app adds a
+ * reading to the stored correction instead of replacing it — see
+ * core/print/printerProfile.correctionFromReadings.
  */
 export async function duplexTestPdf(opts: DuplexTestOptions): Promise<Uint8Array> {
   const size = pageSizeMm(opts.page, opts.orientation);
@@ -57,7 +63,13 @@ export async function duplexTestPdf(opts: DuplexTestOptions): Promise<Uint8Array
     { label: "A", at: { x: 55, y: 70 } },
     { label: "B", at: { x: size.w - 55, y: size.h - 70 } },
   ];
-  const star = { x: 25, y: 25 };
+  // The witness has to clear the instruction band AND the stations, which sit on
+  // the A→B diagonal — and it has to clear them AFTER mirroring, which is what
+  // makes the position depend on the axis being tested.
+  const star: Point =
+    axis === "x"
+      ? { x: 30, y: size.h - 30 }
+      : { x: size.w - 30, y: size.h / 2 - 25 };
 
   const mirror = (p: Point): Point =>
     axis === "x" ? { x: size.w - p.x, y: p.y } : { x: p.x, y: size.h - p.y };
@@ -111,6 +123,46 @@ function pageHelpers(page: PDFPage, size: { w: Mm; h: Mm }, fonts: Fonts) {
       });
     },
     /**
+     * Wrapped instruction text, returning the y it finished on.
+     *
+     * The sheet prints on A4 and Letter, portrait and landscape, so a line long
+     * enough to say something useful runs off the narrow ones. Wrapping keeps
+     * the wording free to be clear instead of short.
+     */
+    paragraph(
+      value: string,
+      at: Point,
+      opts: { sizePt?: number; bold?: boolean } = {},
+    ): Mm {
+      const sizePt = opts.sizePt ?? 9;
+      const face = opts.bold ? fonts.bold : fonts.font;
+      const maxWidth = size.w - at.x - MARGIN_MM;
+      const lines: string[] = [];
+      let line = "";
+      for (const word of value.split(" ")) {
+        const candidate = line === "" ? word : `${line} ${word}`;
+        if (line !== "" && ptToMm(face.widthOfTextAtSize(candidate, sizePt)) > maxWidth) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = candidate;
+        }
+      }
+      if (line !== "") lines.push(line);
+
+      const leading = ptToMm(sizePt) * 1.4;
+      for (const [i, text] of lines.entries()) {
+        page.drawText(text, {
+          x: X(at.x),
+          y: Y(at.y + i * leading),
+          size: sizePt,
+          font: face,
+          color: ink,
+        });
+      }
+      return at.y + lines.length * leading;
+    },
+    /**
      * Drawn, not typed. The standard PDF fonts are WinAnsi and cannot encode a
      * star or an arrow, and a test sheet is the wrong place to discover that.
      */
@@ -128,6 +180,9 @@ function pageHelpers(page: PDFPage, size: { w: Mm; h: Mm }, fonts: Fonts) {
 
 const CROSSHAIR_MM = 30;
 
+/** Text margin, and the width the instruction band wraps to. */
+const MARGIN_MM = 20;
+
 function drawFront(
   doc: PDFDocument,
   size: { w: Mm; h: Mm },
@@ -139,10 +194,15 @@ function drawFront(
   const page = doc.addPage([mmToPt(size.w), mmToPt(size.h)]);
   const d = pageHelpers(page, size, fonts);
 
-  d.text("Plaque duplex test — FRONT", { x: 20, y: 15 }, 15, true);
-  d.text("Print both pages on ONE sheet, duplex, at 100% — no 'fit to page'.", { x: 20, y: 22 });
-  d.text("Plain paper: you need to see through it. Then read the BACK page.", { x: 20, y: 27 });
-  d.text(`Testing flip edge: ${opts.flipEdge} edge.`, { x: 20, y: 32 }, 9, true);
+  d.text("Plaque duplex test — FRONT", { x: MARGIN_MM, y: 15 }, 15, true);
+  const y = d.paragraph(
+    "Print both pages on ONE sheet, double-sided, at 100% — turn off 'fit to page'. Use plain paper: you need to see through it.",
+    { x: MARGIN_MM, y: 23 },
+  );
+  d.paragraph(`Everything you read is on the BACK page. Testing the ${opts.flipEdge} edge flip.`, {
+    x: MARGIN_MM,
+    y: y + 2,
+  }, { bold: true });
 
   // The flip-edge witness. One mark, one question.
   d.fill({ x: star.x - 3, y: star.y - 3 }, 6, 6);
@@ -172,28 +232,28 @@ function drawBack(
   const d = pageHelpers(page, size, fonts);
   const shift = (p: Point): Point => ({ x: p.x + offset.dx, y: p.y + offset.dy });
 
-  d.text("Plaque duplex test — BACK", { x: 20, y: 15 }, 15, true);
-  d.text("Hold the sheet up to a window and read from THIS side.", { x: 20, y: 22 });
-  d.text(
-    "At each station, read the number the front's line crosses. Type those two numbers into Print setup.",
-    { x: 20, y: 27 },
+  d.text("Plaque duplex test — BACK", { x: MARGIN_MM, y: 15 }, 15, true);
+  let y = d.paragraph("Hold the sheet up to a window and read it from THIS side.", {
+    x: MARGIN_MM,
+    y: 23,
+  });
+  y = d.paragraph(
+    "1. Does the front's solid square sit inside the witness box below? If not, switch to the other flip edge and start again.",
+    { x: MARGIN_MM, y: y + 2 },
   );
-  d.text(
-    `If A and B disagree by more than 1mm the sheet went through skewed — feed it straight and retest.`,
-    { x: 20, y: 32 },
+  y = d.paragraph(
+    "2. Each station has two scales: 'across' and 'down'. Read where the front's line crosses each one and type all four numbers into Print setup — A across, A down, B across, B down.",
+    { x: MARGIN_MM, y: y + 1 },
   );
-  d.text(
-    "The front's witness mark should be behind this page's witness box. If it is not, choose the other flip edge.",
-    { x: 20, y: 42 },
-    9,
-    true,
+  y = d.paragraph(
+    `3. If A and B differ by more than ${SKEW_THRESHOLD_MM}mm the sheet went through skewed. No shift can fix that: feed the paper straight and print this again.`,
+    { x: MARGIN_MM, y: y + 1 },
   );
   if (offset.dx !== 0 || offset.dy !== 0) {
-    d.text(
-      `Already correcting by ${offset.dx}mm right, ${offset.dy}mm down — both scales should now read 0.`,
-      { x: 20, y: 37 },
-      9,
-      true,
+    d.paragraph(
+      `This sheet already carries a correction of ${offset.dx}mm across and ${offset.dy}mm down, so every scale should now read 0. Whatever is left over is what Plaque adds to it.`,
+      { x: MARGIN_MM, y: y + 2 },
+      { bold: true },
     );
   }
 
@@ -228,7 +288,7 @@ function drawScale(
   axis: "x" | "y",
   label: string,
 ): void {
-  const span = MAX_BACK_OFFSET_MM / 2;
+  const span = READABLE_SPAN_MM;
   const horizontal = axis === "x";
   const along = (mm: Mm): Point =>
     horizontal ? { x: centre.x + mm, y: centre.y } : { x: centre.x, y: centre.y + mm };

@@ -22,9 +22,9 @@ import {
   ColorField,
   Hint,
   NumberField,
-  Panel,
   Row,
   SelectField,
+  SubGroup,
   TextField,
 } from "../controls";
 import styles from "./InspectorPanel.module.css";
@@ -80,11 +80,7 @@ export function InspectorPanel() {
   const [rowOnly, setRowOnly] = useState(false);
 
   if (!element) {
-    return (
-      <Panel title="Selected element">
-        <Hint>Click something on the card to edit it.</Hint>
-      </Panel>
-    );
+    return <Hint>Click something on the card to edit it.</Hint>;
   }
 
   const patch = (p: Partial<CardElement>) =>
@@ -98,7 +94,7 @@ export function InspectorPanel() {
   const overridden = Boolean(rowId && template.overrides?.[rowId]?.[element.id]);
 
   return (
-    <Panel title="Selected element">
+    <>
       {rowId && (
         <div className={styles.scope}>
           <CheckboxField
@@ -118,28 +114,30 @@ export function InspectorPanel() {
           )}
         </div>
       )}
-      <Row>
-        <NumberField label="X" value={element.x} step={0.5} suffix="mm" onChange={(x) => patch({ x })} />
-        <NumberField label="Y" value={element.y} step={0.5} suffix="mm" onChange={(y) => patch({ y })} />
-      </Row>
-      <Row>
-        <NumberField
-          label="Width"
-          value={element.w}
-          step={0.5}
-          min={1}
-          suffix="mm"
-          onChange={(w) => patch({ w })}
-        />
-        <NumberField
-          label="Height"
-          value={element.h}
-          step={0.5}
-          min={1}
-          suffix="mm"
-          onChange={(h) => patch({ h })}
-        />
-      </Row>
+      <SubGroup title="Position and size">
+        <Row>
+          <NumberField label="X" value={element.x} step={0.5} suffix="mm" onChange={(x) => patch({ x })} />
+          <NumberField label="Y" value={element.y} step={0.5} suffix="mm" onChange={(y) => patch({ y })} />
+        </Row>
+        <Row>
+          <NumberField
+            label="Width"
+            value={element.w}
+            step={0.5}
+            min={1}
+            suffix="mm"
+            onChange={(w) => patch({ w })}
+          />
+          <NumberField
+            label="Height"
+            value={element.h}
+            step={0.5}
+            min={1}
+            suffix="mm"
+            onChange={(h) => patch({ h })}
+          />
+        </Row>
+      </SubGroup>
 
       {element.kind === "text" && (
         <TextProperties
@@ -162,7 +160,7 @@ export function InspectorPanel() {
       )}
 
       {element.kind === "icon" && (
-        <>
+        <SubGroup title="Icon">
           <SelectField
             label="Read from column"
             value={element.sourceField}
@@ -174,7 +172,7 @@ export function InspectorPanel() {
           />
           <ColorField label="Colour" value={element.colorHex} onChange={(c) => patch({ colorHex: c ?? "#000000" })} />
           <Hint>Which icon appears for each value is set under Icon rules.</Hint>
-        </>
+        </SubGroup>
       )}
 
       {element.kind === "image" &&
@@ -191,7 +189,7 @@ export function InspectorPanel() {
           const cropping = cropId === element.id;
 
           return (
-            <>
+            <SubGroup title="Artwork">
               <SelectField<ImageFit>
                 label="Fit"
                 value={element.fit}
@@ -288,12 +286,12 @@ export function InspectorPanel() {
                   ? "Change the artwork under Images."
                   : "Upload artwork under Images."}
               </Hint>
-            </>
+            </SubGroup>
           );
         })()}
 
       {(element.kind === "rect" || element.kind === "line") && (
-        <>
+        <SubGroup title="Fill and stroke">
           {element.kind === "rect" && (
             <ColorField label="Fill" value={element.fillHex} allowNone onChange={(fillHex) => patch({ fillHex })} />
           )}
@@ -314,9 +312,9 @@ export function InspectorPanel() {
             />
             <CheckboxField label="Dashed" checked={element.dashed} onChange={(dashed) => patch({ dashed })} />
           </Row>
-        </>
+        </SubGroup>
       )}
-    </Panel>
+    </>
   );
 }
 
@@ -352,6 +350,7 @@ function ListProperties({
           : "Upload a CSV, then set the row scope under Guest list."}
       </Hint>
 
+      <SubGroup title="Typography">
       <Row>
         <TextField
           label="Bullet"
@@ -411,9 +410,11 @@ function ListProperties({
       </Row>
 
       <ColorField label="Colour" value={element.colorHex} onChange={(c) => patch({ colorHex: c ?? "#000000" })} />
+      </SubGroup>
 
       <OpticalProperties element={element} patch={patch} fonts={fonts} />
 
+      <SubGroup title="If it does not fit">
       <Row>
         <NumberField
           label="Never below"
@@ -437,6 +438,7 @@ function ListProperties({
         Lines are never re-wrapped — a wrapped menu line reads as two guests. The block shrinks until
         every line fits, then warns.
       </Hint>
+      </SubGroup>
     </>
   );
 }
@@ -462,7 +464,7 @@ function OpticalProperties({
     patch({ optical: { ...optical, ...next } });
 
   return (
-    <>
+    <SubGroup title="Optical" open={false}>
       <CheckboxField
         label="Optical centring"
         checked={optical.opticalAlign}
@@ -504,7 +506,7 @@ function OpticalProperties({
           </Hint>
         </>
       )}
-    </>
+    </SubGroup>
   );
 }
 
@@ -535,6 +537,7 @@ function TextProperties({
         </Hint>
       )}
 
+      <SubGroup title="Typography">
       <SelectField label="Font" value={element.fontId} options={fontOptions} onChange={(fontId) => patch({ fontId })} />
 
       <Row>
@@ -578,8 +581,6 @@ function TextProperties({
         />
       </Row>
 
-      <OpticalProperties element={element} patch={patch} fonts={fonts} />
-
       <Row>
         <NumberField
           label="Letter spacing"
@@ -590,7 +591,11 @@ function TextProperties({
         />
         <ColorField label="Colour" value={element.colorHex} onChange={(c) => patch({ colorHex: c ?? "#000000" })} />
       </Row>
+      </SubGroup>
 
+      <OpticalProperties element={element} patch={patch} fonts={fonts} />
+
+      <SubGroup title="If it does not fit">
       <SelectField<FitMode>
         label="If it does not fit"
         value={element.fit.mode}
@@ -638,6 +643,7 @@ function TextProperties({
           ? "Text shrinks around wherever it is aligned, so a centred name stays centred and a right-aligned one keeps its right edge."
           : "Align decides how the lines sit relative to each other; this decides where the whole block sits as it shrinks."}
       </Hint>
+      </SubGroup>
     </>
   );
 }

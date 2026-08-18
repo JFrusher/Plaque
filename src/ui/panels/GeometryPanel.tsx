@@ -8,63 +8,61 @@ import { CARD_PRESETS, applyCardPreset } from "../../core/data/cardPresets";
 import { GALLERY } from "../../core/data/gallery";
 import type { FoldAxis, Orientation, PageSizeName } from "../../core/types";
 import { usePlaque } from "../../state/store";
-import { CheckboxField, Hint, NumberField, Panel, Row, SelectField } from "../controls";
+import { CheckboxField, Hint, NumberField, Row, SelectField, SubGroup } from "../controls";
 import styles from "./GeometryPanel.module.css";
 
-/** FR-STA-02. Any card size, any fold, plus layouts that maximise cards per sheet. */
-export function GeometryPanel() {
-  const { card, sheet, setCard, setSheet, applySuggestion, applyGalleryTemplate } = usePlaque(
+/**
+ * FR-STA-02, the card half: any size, any fold.
+ *
+ * Card and Sheet were one component because they were one panel. They are two
+ * module views now — the card is the artefact, the sheet is the press — so they
+ * are two components, each subscribing to the slice it actually draws.
+ */
+export function CardPanel() {
+  const { card, setCard, applyGalleryTemplate } = usePlaque(
     useShallow((s) => ({
       card: s.card,
-      sheet: s.sheet,
       setCard: s.setCard,
-      setSheet: s.setSheet,
-      applySuggestion: s.applySuggestion,
       applyGalleryTemplate: s.applyGalleryTemplate,
     })),
   );
 
-  const suggestions = useMemo(
-    () => suggestLayouts(card, { printerMarginMm: sheet.printerMarginMm, maxResults: 4 }),
-    [card, sheet.printerMarginMm],
-  );
-  const layout = useMemo(() => computeLayout(card, sheet), [card, sheet]);
   const foldSpan = card.fold === "vertical" ? card.widthMm : card.heightMm;
 
   return (
     <>
-      <Panel title="Card">
-        <SelectField
-          label="Start from a design"
-          value=""
-          options={[
-            { value: "", label: "Keep the current design" },
-            ...GALLERY.map((t) => ({ value: t.id, label: t.name })),
-          ]}
-          onChange={(id) => {
-            const entry = GALLERY.find((t) => t.id === id);
-            if (entry) applyGalleryTemplate(entry);
-          }}
-        />
-        <Hint>
-          Replaces the design and the card size, then re-attaches every token to your own columns.
-          Undo puts it back.
-        </Hint>
+      <SelectField
+        label="Start from a design"
+        value=""
+        options={[
+          { value: "", label: "Keep the current design" },
+          ...GALLERY.map((t) => ({ value: t.id, label: t.name })),
+        ]}
+        onChange={(id) => {
+          const entry = GALLERY.find((t) => t.id === id);
+          if (entry) applyGalleryTemplate(entry);
+        }}
+      />
+      <Hint>
+        Replaces the design and the card size, then re-attaches every token to your own columns.
+        Undo puts it back.
+      </Hint>
 
-        <SelectField
-          label="What are you making?"
-          value=""
-          options={[
-            { value: "", label: "Custom size" },
-            ...CARD_PRESETS.map((p) => ({ value: p.id, label: p.name })),
-          ]}
-          onChange={(id) => {
-            const preset = CARD_PRESETS.find((p) => p.id === id);
-            if (preset) setCard(applyCardPreset(preset));
-          }}
-        />
-        <Hint>Presets set the size and the fold. Everything stays editable afterwards.</Hint>
+      <SelectField
+        label="What are you making?"
+        value=""
+        options={[
+          { value: "", label: "Custom size" },
+          ...CARD_PRESETS.map((p) => ({ value: p.id, label: p.name })),
+        ]}
+        onChange={(id) => {
+          const preset = CARD_PRESETS.find((p) => p.id === id);
+          if (preset) setCard(applyCardPreset(preset));
+        }}
+      />
+      <Hint>Presets set the size and the fold. Everything stays editable afterwards.</Hint>
 
+      <SubGroup title="Size">
         <Row>
           <NumberField
             label="Width"
@@ -83,7 +81,17 @@ export function GeometryPanel() {
             onChange={(heightMm) => setCard({ heightMm })}
           />
         </Row>
+        <NumberField
+          label="Bleed"
+          value={card.bleedMm}
+          step={0.5}
+          min={0}
+          suffix="mm"
+          onChange={(bleedMm) => setCard({ bleedMm })}
+        />
+      </SubGroup>
 
+      <SubGroup title="Fold">
         <Row>
           <SelectField<FoldAxis>
             label="Fold"
@@ -133,42 +141,55 @@ export function GeometryPanel() {
             </button>
           </>
         )}
+      </SubGroup>
+    </>
+  );
+}
 
-        <NumberField
-          label="Bleed"
-          value={card.bleedMm}
-          step={0.5}
-          min={0}
-          suffix="mm"
-          onChange={(bleedMm) => setCard({ bleedMm })}
-        />
-      </Panel>
+/** FR-STA-02, the sheet half: what the press does with the card. */
+export function SheetPanel() {
+  const { card, sheet, setCard, setSheet, applySuggestion } = usePlaque(
+    useShallow((s) => ({
+      card: s.card,
+      sheet: s.sheet,
+      setCard: s.setCard,
+      setSheet: s.setSheet,
+      applySuggestion: s.applySuggestion,
+    })),
+  );
 
-      <Panel title="Sheet">
-        <SelectField
-          label="Pre-cut stock"
-          value=""
-          options={[
-            { value: "", label: "None — plain sheets, cut them yourself" },
-            ...STOCK_PRESETS.map((p) => ({ value: p.id, label: p.name })),
-          ]}
-          onChange={(id) => {
-            const preset = STOCK_PRESETS.find((p) => p.id === id);
-            if (!preset) return;
-            const applied = applyPreset(preset);
-            setCard(applied.card);
-            setSheet(applied.sheet);
-          }}
-        />
-        <Hint>
-          A preset sets the card size and the grid, and turns crop marks off — the cutting already
-          happened. Prove it with "Two test cards" on plain paper held against the real sheet before
-          feeding stock you paid for.
-        </Hint>
+  const suggestions = useMemo(
+    () => suggestLayouts(card, { printerMarginMm: sheet.printerMarginMm, maxResults: 4 }),
+    [card, sheet.printerMarginMm],
+  );
+  const layout = useMemo(() => computeLayout(card, sheet), [card, sheet]);
 
-        {suggestions.length > 0 && (
+  return (
+    <>
+      <SelectField
+        label="Pre-cut stock"
+        value=""
+        options={[
+          { value: "", label: "None — plain sheets, cut them yourself" },
+          ...STOCK_PRESETS.map((p) => ({ value: p.id, label: p.name })),
+        ]}
+        onChange={(id) => {
+          const preset = STOCK_PRESETS.find((p) => p.id === id);
+          if (!preset) return;
+          const applied = applyPreset(preset);
+          setCard(applied.card);
+          setSheet(applied.sheet);
+        }}
+      />
+      <Hint>
+        A preset sets the card size and the grid, and turns crop marks off — the cutting already
+        happened. Prove it with "Two test cards" on plain paper held against the real sheet before
+        feeding stock you paid for.
+      </Hint>
+
+      {suggestions.length > 0 && (
+        <SubGroup title="Fits best">
           <div className={styles.suggestions}>
-            <span className={styles.suggestionsLabel}>Fits best</span>
             {suggestions.map((s) => (
               <button
                 key={s.id}
@@ -187,35 +208,37 @@ export function GeometryPanel() {
               </button>
             ))}
           </div>
-        )}
+        </SubGroup>
+      )}
 
-        <Row>
-          <SelectField<PageSizeName>
-            label="Paper"
-            value={sheet.page}
-            options={[
-              { value: "A4", label: "A4" },
-              { value: "LETTER", label: "US Letter" },
-            ]}
-            onChange={(page) => setSheet({ page })}
-          />
-          <SelectField<Orientation>
-            label="Orientation"
-            value={sheet.orientation}
-            options={[
-              { value: "portrait", label: "Portrait" },
-              { value: "landscape", label: "Landscape" },
-            ]}
-            onChange={(orientation) => setSheet({ orientation })}
-          />
-        </Row>
-
-        <CheckboxField
-          label="Turn cards 90° on the sheet"
-          checked={sheet.cardRotationDeg === 90}
-          onChange={(on) => setSheet({ cardRotationDeg: on ? 90 : 0 })}
+      <Row>
+        <SelectField<PageSizeName>
+          label="Paper"
+          value={sheet.page}
+          options={[
+            { value: "A4", label: "A4" },
+            { value: "LETTER", label: "US Letter" },
+          ]}
+          onChange={(page) => setSheet({ page })}
         />
+        <SelectField<Orientation>
+          label="Orientation"
+          value={sheet.orientation}
+          options={[
+            { value: "portrait", label: "Portrait" },
+            { value: "landscape", label: "Landscape" },
+          ]}
+          onChange={(orientation) => setSheet({ orientation })}
+        />
+      </Row>
 
+      <CheckboxField
+        label="Turn cards 90° on the sheet"
+        checked={sheet.cardRotationDeg === 90}
+        onChange={(on) => setSheet({ cardRotationDeg: on ? 90 : 0 })}
+      />
+
+      <SubGroup title="Margins and gaps" open={false}>
         <Row>
           <NumberField
             label="Margin top"
@@ -278,13 +301,13 @@ export function GeometryPanel() {
           suffix="mm"
           onChange={(printerMarginMm) => setSheet({ printerMarginMm })}
         />
+      </SubGroup>
 
-        <Hint>
-          {layout.perSheet > 0
-            ? `${layout.cols} × ${layout.rows} — ${layout.perSheet} cards per sheet.`
-            : "No cards fit at these settings."}
-        </Hint>
-      </Panel>
+      <Hint>
+        {layout.perSheet > 0
+          ? `${layout.cols} × ${layout.rows} — ${layout.perSheet} cards per sheet.`
+          : "No cards fit at these settings."}
+      </Hint>
     </>
   );
 }

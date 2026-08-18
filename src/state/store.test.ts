@@ -72,6 +72,61 @@ describe("elements", () => {
   });
 });
 
+describe("copying the front onto the back", () => {
+  beforeEach(() => {
+    state().setCsv(csv());
+  });
+
+  it("gives the back the same design at the same card coordinates", () => {
+    // Card-local coordinates are copied verbatim: imposition mirrors the card
+    // SLOT, so identical coordinates are what puts the twin behind its front and
+    // reading the same way up from the other side of the table.
+    state().copyFrontToBack();
+    const { elements } = state().template;
+    const fronts = elements.filter((el) => el.side !== "back");
+    const backs = elements.filter((el) => el.side === "back");
+
+    expect(backs).toHaveLength(fronts.length);
+    expect(backs.map((el) => [el.kind, el.x, el.y, el.w, el.h])).toEqual(
+      fronts.map((el) => [el.kind, el.x, el.y, el.w, el.h]),
+    );
+    // New ids, or the two sides would be one element and could never diverge.
+    expect(backs.some((el) => fronts.some((f) => f.id === el.id))).toBe(false);
+  });
+
+  it("turns duplex on, since a back nobody prints is not a back", () => {
+    expect(state().sheet.duplex).toBe(false);
+    state().copyFrontToBack();
+    expect(state().sheet.duplex).toBe(true);
+    expect(state().editingSide).toBe("back");
+  });
+
+  it("replaces the old back rather than piling copies onto it", () => {
+    state().copyFrontToBack();
+    const first = state().template.elements.filter((el) => el.side === "back").length;
+    state().copyFrontToBack();
+    expect(state().template.elements.filter((el) => el.side === "back")).toHaveLength(first);
+  });
+
+  it("carries per-row edits across, or the back would print the raw CSV value", () => {
+    const rowId = state().rowIds[0]!;
+    const element = state().template.elements[0]!;
+    state().overrideForRow(rowId, element.id, { fontSizePt: 11 });
+    state().copyFrontToBack();
+
+    const twin = state().template.elements.find((el) => el.side === "back" && el.kind === element.kind)!;
+    expect(state().template.overrides?.[rowId]?.[twin.id]).toEqual({ fontSizePt: 11 });
+  });
+
+  it("is undoable like any other design change", () => {
+    const before = state().template.elements.length;
+    state().copyFrontToBack();
+    state().undo();
+    expect(state().template.elements).toHaveLength(before);
+    expect(state().sheet.duplex).toBe(false);
+  });
+});
+
 describe("undo", () => {
   it("steps back through changes", () => {
     state().setCard({ widthMm: 100 });

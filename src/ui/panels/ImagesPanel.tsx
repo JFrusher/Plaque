@@ -4,7 +4,7 @@ import type { ImageElement } from "../../core/types";
 import { boxWithAspect } from "../../core/template/imageFit";
 import { deleteImage, readImageFile, release, saveImage, toSource } from "../../state/imageStore";
 import { usePlaque } from "../../state/store";
-import { Hint, Panel } from "../controls";
+import { Hint, SubGroup } from "../controls";
 import styles from "./ImagesPanel.module.css";
 
 /** The box an element is created with, before anyone has touched it. */
@@ -80,7 +80,7 @@ export function ImagesPanel() {
   }
 
   return (
-    <Panel title="Images" open={false}>
+    <>
       <button
         type="button"
         className={styles.button}
@@ -102,6 +102,7 @@ export function ImagesPanel() {
 
       {error && <p className={styles.error}>{error}</p>}
 
+      <SubGroup title={`Uploaded (${images.size})`}>
       {images.size === 0 ? (
         <Hint>
           Add an Image element to the card, then upload artwork here. The same image appears on
@@ -139,11 +140,12 @@ export function ImagesPanel() {
       {images.size > 0 && !selected && (
         <Hint>Select an image element on the card to assign one of these to it.</Hint>
       )}
+      </SubGroup>
 
       <Hint>
         PNG and JPEG only — those are the two formats a PDF embeds directly. For an SVG, use the
         icon uploader instead.
       </Hint>
-    </Panel>
+    </>
   );
 }

@@ -2,17 +2,16 @@ import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   REFERENCE_RULE_MM,
-  backCorrection,
   describeScale,
   isNotableDrift,
-  readingToCorrection,
   scaleFromMeasurement,
   type PrinterProfile,
 } from "../../core/print/printerProfile";
 import { newId } from "../../core/template/defaults";
 import { savePrinters } from "../../state/printerStore";
 import { usePlaque } from "../../state/store";
-import { Hint, Panel, SelectField } from "../controls";
+import { Hint, SelectField, SubGroup } from "../controls";
+import { DuplexCard } from "./DuplexCard";
 import styles from "./PrintSetupPanel.module.css";
 
 /**
@@ -33,14 +32,13 @@ export function PrintSetupPanel() {
   );
   const [measured, setMeasured] = useState("");
   const [name, setName] = useState("");
-  const [margin, setMargin] = useState("");
-  const [acrossReading, setAcrossReading] = useState("");
-  const [downReading, setDownReading] = useState("");
+  // null means "not touched here", so the field always shows the active
+  // printer's stored value rather than a number typed against another machine.
+  const [margin, setMargin] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const active = printers.find((p) => p.id === activePrinterId) ?? null;
-  const { dx: backOffsetX, dy: backOffsetY } = backCorrection(active);
   const storedMargin =
     typeof active?.unprintableMarginMm === "number" ? String(active.unprintableMarginMm) : "";
 
@@ -78,10 +76,10 @@ export function PrintSetupPanel() {
   }
 
   /**
-   * Duplex settings describe the printer's mechanism, so they attach to the
-   * profile — creating one if the user reached duplex before calibration.
+   * Printer-mechanism settings attach to the profile, creating one if the user
+   * measured a border before calibrating.
    */
-  function saveDuplex(patch: Partial<PrinterProfile>) {
+  function saveProfile(patch: Partial<PrinterProfile>) {
     setError(null);
     const s = usePlaque.getState();
     s.upsertPrinter({
@@ -94,31 +92,6 @@ export function PrintSetupPanel() {
       ...patch,
     });
     void persist();
-  }
-
-  async function printDuplexTest() {
-    setBusy(true);
-    setError(null);
-    try {
-      const { duplexTestPdf } = await import("../../render/pdf/duplexTestPdf");
-      const bytes = await duplexTestPdf({
-        page,
-        orientation,
-        flipEdge: active?.flipEdge ?? "long",
-        backOffsetXMm: backOffsetX,
-        backOffsetYMm: backOffsetY,
-      });
-      const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: "application/pdf" }));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "plaque-duplex-test.pdf";
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "The duplex test sheet could not be built.");
-    } finally {
-      setBusy(false);
-    }
   }
 
   function saveMeasurement() {
@@ -143,7 +116,7 @@ export function PrintSetupPanel() {
   }
 
   return (
-    <Panel title="Print setup" open={false}>
+    <>
       {printers.length > 0 && (
         <SelectField
           label="Printer"
@@ -154,6 +127,7 @@ export function PrintSetupPanel() {
           ]}
           onChange={(id) => {
             usePlaque.getState().setActivePrinter(id || null);
+            setMargin(null);
             void persist();
           }}
         />
@@ -171,6 +145,7 @@ export function PrintSetupPanel() {
         </Hint>
       )}
 
+      <SubGroup title="Scale">
       <button type="button" className={styles.button} disabled={busy} onClick={() => void printCalibration()}>
         {busy ? "Building…" : "Download calibration page"}
       </button>
@@ -210,20 +185,22 @@ export function PrintSetupPanel() {
       </div>
 
       {error && <p className={styles.error}>{error}</p>}
+      </SubGroup>
 
+      <SubGroup title="Unprintable border" open={false}>
       <label className={styles.field}>
         <span>Unprintable border, measured (mm)</span>
         <input
           type="number"
           className={styles.input}
-          value={margin !== "" ? margin : storedMargin}
+          value={margin ?? storedMargin}
           step={0.5}
           min={0}
           placeholder="from the corner crosses"
           onChange={(e) => setMargin(e.target.value)}
           onBlur={() => {
-            const value = Number.parseFloat(margin);
-            if (Number.isFinite(value) && value >= 0) saveDuplex({ unprintableMarginMm: value });
+            const value = Number.parseFloat(margin ?? "");
+            if (Number.isFinite(value) && value >= 0) saveProfile({ unprintableMarginMm: value });
           }}
         />
       </label>
@@ -232,74 +209,11 @@ export function PrintSetupPanel() {
         clipped, that edge cannot be reached — put the measurement here and Plaque warns when a fold
         guide or bleed lands inside it.
       </Hint>
+      </SubGroup>
 
-      <h3 className={styles.heading}>Double-sided</h3>
-      <SelectField
-        label="Flip edge"
-        value={active?.flipEdge ?? "long"}
-        options={[
-          { value: "long", label: "Long edge (most printers)" },
-          { value: "short", label: "Short edge" },
-        ]}
-        onChange={(flipEdge) => saveDuplex({ flipEdge })}
-      />
-      <button
-        type="button"
-        className={styles.button}
-        disabled={busy}
-        onClick={() => void printDuplexTest()}
-      >
-        {busy ? "Building…" : "Download duplex test sheet"}
-      </button>
-      <Hint>
-        Print it duplex on plain paper, hold it to a window, and read the two scales on the back
-        where the front's lines cross them. Those numbers go straight in below — no arithmetic.
-      </Hint>
-
-      <div className={styles.measure}>
-        <label className={styles.field}>
-          <span>Station A "across" reading (mm)</span>
-          <input
-            type="number"
-            className={styles.input}
-            value={acrossReading}
-            step={0.1}
-            placeholder="0"
-            onChange={(e) => setAcrossReading(e.target.value)}
-          />
-        </label>
-        <label className={styles.field}>
-          <span>Station A "down" reading (mm)</span>
-          <input
-            type="number"
-            className={styles.input}
-            value={downReading}
-            step={0.1}
-            placeholder="0"
-            onChange={(e) => setDownReading(e.target.value)}
-          />
-        </label>
-        <button
-          type="button"
-          className={styles.button}
-          disabled={acrossReading.trim() === "" && downReading.trim() === ""}
-          onClick={() =>
-            saveDuplex({
-              backOffsetXMm: readingToCorrection(Number.parseFloat(acrossReading || "0")),
-              backOffsetYMm: readingToCorrection(Number.parseFloat(downReading || "0")),
-            })
-          }
-        >
-          Save back-side alignment
-        </button>
-      </div>
-
-      {active && (backOffsetX !== 0 || backOffsetY !== 0) && (
-        <p className={styles.applied}>
-          Back pages shifted {backOffsetX}mm across, {backOffsetY}mm down. Print the test sheet again
-          — both scales should read 0.
-        </p>
-      )}
+      <SubGroup title="Double-sided" open={false}>
+      <DuplexCard key={activePrinterId ?? "none"} />
+      </SubGroup>
 
       {active && (
         <button
@@ -319,6 +233,6 @@ export function PrintSetupPanel() {
         Every export after that is corrected, and the factor is printed on the sheet so a bad print
         explains itself.
       </Hint>
-    </Panel>
+    </>
   );
 }

@@ -1,6 +1,6 @@
 import { useShallow } from "zustand/react/shallow";
 import { usePlaque } from "../../state/store";
-import { CheckboxField, ColorField, Hint, Panel } from "../controls";
+import { CheckboxField, ColorField, Hint, SubGroup } from "../controls";
 
 /** FR-STA-06, plus the card background. */
 export function GuidesPanel() {
@@ -17,7 +17,8 @@ export function GuidesPanel() {
   );
 
   return (
-    <Panel title="Guides and background" open={false}>
+    <>
+      <SubGroup title="Marks and guides">
       <CheckboxField
         label="Crop marks"
         checked={sheet.cropMarks}
@@ -39,7 +40,9 @@ export function GuidesPanel() {
         onChange={(bleedGuides) => setSheet({ bleedGuides })}
       />
       <Hint>The bleed boundary is an on-screen aid. It is never drawn into the PDF.</Hint>
+      </SubGroup>
 
+      <SubGroup title="Slug line">
       <CheckboxField
         label="Slug line (PDF only)"
         checked={sheet.slugLine}
@@ -50,7 +53,9 @@ export function GuidesPanel() {
         Turn the slug line on for a test print: if its 100mm rule does not measure 100mm, the printer
         driver is scaling the page.
       </Hint>
+      </SubGroup>
 
+      <SubGroup title="Canvas">
       <ColorField
         label="Card background"
         value={backgroundHex}
@@ -59,6 +64,7 @@ export function GuidesPanel() {
       />
 
       <CheckboxField label="Snap while dragging" checked={snapEnabled} onChange={toggleSnap} />
-    </Panel>
+      </SubGroup>
+    </>
   );
 }

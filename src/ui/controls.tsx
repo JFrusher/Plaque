@@ -1,7 +1,44 @@
 import type { ReactNode } from "react";
 import styles from "./controls.module.css";
 
+/**
+ * Level 2 of the sidebar hierarchy: a module view inside a domain.
+ *
+ * The disclosure is a native <details>, so open/closed costs no state, survives
+ * being re-rendered, and is what the browser's own find-in-page expands.
+ */
 export function Panel({
+  title,
+  badge,
+  active,
+  children,
+  open = true,
+}: {
+  title: string;
+  /** Right-aligned counter. Null or undefined prints nothing; 0 prints "0". */
+  badge?: number | string | null;
+  /** Marks the panel that the current selection is about. */
+  active?: boolean;
+  children: ReactNode;
+  open?: boolean;
+}) {
+  return (
+    <details className={active ? `${styles.panel} ${styles.panelActive}` : styles.panel} open={open}>
+      <summary className={styles.summary}>
+        <span className={styles.title}>{title}</span>
+        {badge !== undefined && badge !== null && <span className={styles.badge}>{badge}</span>}
+      </summary>
+      <div className={styles.body}>{children}</div>
+    </details>
+  );
+}
+
+/**
+ * Level 3: a group of fields inside a panel. Indented behind a guide line so
+ * the eye can tell "these six numbers are one idea" from "these are the next
+ * thing", which a flat column of labelled inputs cannot say.
+ */
+export function SubGroup({
   title,
   children,
   open = true,
@@ -11,9 +48,9 @@ export function Panel({
   open?: boolean;
 }) {
   return (
-    <details className={styles.panel} open={open}>
-      <summary className={styles.summary}>{title}</summary>
-      <div className={styles.body}>{children}</div>
+    <details className={styles.sub} open={open}>
+      <summary className={styles.subSummary}>{title}</summary>
+      <div className={styles.subBody}>{children}</div>
     </details>
   );
 }

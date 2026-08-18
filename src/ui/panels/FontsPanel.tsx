@@ -5,7 +5,7 @@ import { assetId } from "../../state/assetId";
 import { deleteFont, saveFont } from "../../state/blobStore";
 import { registerFont } from "../../state/fontLoader";
 import { usePlaque } from "../../state/store";
-import { Hint, Panel } from "../controls";
+import { Hint, SubGroup } from "../controls";
 import styles from "./FontsPanel.module.css";
 
 const ACCEPTED = /\.(ttf|otf)$/i;
@@ -61,7 +61,8 @@ export function FontsPanel() {
   }
 
   return (
-    <Panel title="Fonts" open={false}>
+    <>
+      <SubGroup title="Available faces">
       <ul className={styles.list}>
         {BUNDLED_FONTS.map((f) => (
           <li key={f.id}>
@@ -82,6 +83,7 @@ export function FontsPanel() {
           </li>
         ))}
       </ul>
+      </SubGroup>
 
       <button
         type="button"
@@ -108,6 +110,6 @@ export function FontsPanel() {
         {fonts.size} {fonts.size === 1 ? "face" : "faces"} available. Uploaded fonts stay on this
         device and are embedded only into the PDFs you generate.
       </Hint>
-    </Panel>
+    </>
   );
 }

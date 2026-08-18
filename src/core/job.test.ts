@@ -77,6 +77,72 @@ describe("buildJob", () => {
     };
     expect(buildJob(input({ sheet, duplex, template: withBack })).sheets).toHaveLength(38);
   });
+
+  it("lands a copied back behind its own front, and moves it by the printer's correction", () => {
+    // What the "same design on the back" button produces: every front element
+    // repeated at the same CARD coordinates. Imposition mirrors the card SLOT,
+    // so card 3's back is behind card 3's front and reads the same way up from
+    // the other side of the table.
+    const sheet = { ...defaultSheet(), duplex: true };
+    const base = defaultTemplate(headers, card);
+    const twinned = {
+      ...base,
+      elements: [
+        ...base.elements,
+        ...base.elements.map((el, i) => ({ ...el, id: `back-${i}`, side: "back" as const })),
+      ],
+    };
+
+    const job = buildJob(input({ sheet, template: twinned, duplex: { flipEdge: "long" as const } }));
+    const [front, back] = [job.sheets[0]!, job.sheets[1]!];
+    const W = front.pageWidthMm;
+
+    expect(back.cards).toHaveLength(front.cards.length);
+    for (const [i, f] of front.cards.entries()) {
+      const b = back.cards[i]!;
+      // Portrait long-edge flip mirrors x: the back slot is the front slot
+      // reflected about the page centreline, which is where it physically lands.
+      expect(b.origin.x).toBeCloseTo(W - f.origin.x - f.footprint.w, 6);
+      expect(b.origin.y).toBeCloseTo(f.origin.y, 6);
+
+      // Same offsets inside the card, so the twin reads identically.
+      const local = (card_: typeof f) =>
+        card_.scene.elements.map((el) => [
+          Math.round((el.x - card_.origin.x) * 100) / 100,
+          Math.round((el.y - card_.origin.y) * 100) / 100,
+        ]);
+      expect(local(b)).toEqual(local(f));
+    }
+  });
+
+  it("applies the measured back-side correction to the backs and nothing else", () => {
+    const sheet = { ...defaultSheet(), duplex: true };
+    const base = defaultTemplate(headers, card);
+    const twinned = {
+      ...base,
+      elements: [...base.elements, { ...base.elements[0]!, id: "twin", side: "back" as const }],
+    };
+    const at = (dx: number, dy: number) =>
+      buildJob(
+        input({
+          sheet,
+          template: twinned,
+          duplex: { flipEdge: "long" as const, backOffsetXMm: dx, backOffsetYMm: dy },
+        }),
+      );
+
+    const plain = at(0, 0);
+    const corrected = at(1.5, -0.8);
+    expect(corrected.sheets[0]!.cards[0]!.origin).toEqual(plain.sheets[0]!.cards[0]!.origin);
+    expect(corrected.sheets[1]!.cards[0]!.origin.x).toBeCloseTo(
+      plain.sheets[1]!.cards[0]!.origin.x + 1.5,
+      6,
+    );
+    expect(corrected.sheets[1]!.cards[0]!.origin.y).toBeCloseTo(
+      plain.sheets[1]!.cards[0]!.origin.y - 0.8,
+      6,
+    );
+  });
 });
 
 describe("the same job builds the same bytes (F4)", () => {

@@ -5,7 +5,7 @@ import { distinctValues, resolveIconId } from "../../core/template/icons";
 import type { IconElement } from "../../core/types";
 import { parseSvgIcon } from "../../render/svg/parseSvgIcon";
 import { usePlaque } from "../../state/store";
-import { Hint, Panel } from "../controls";
+import { Hint, SubGroup } from "../controls";
 import styles from "./IconRulesPanel.module.css";
 
 /**
@@ -66,7 +66,7 @@ export function IconRulesPanel() {
   }
 
   return (
-    <Panel title="Icon rules" open={false}>
+    <>
       {!element ? (
         <Hint>
           Add an icon element to the card, then map the values of any column — dietary, entrée,
@@ -95,6 +95,7 @@ export function IconRulesPanel() {
             nothing. Change the column in Selected element.
           </Hint>
 
+          <SubGroup title="Value to icon">
           <ul className={styles.rules}>
             {distinctValues(rows, element.sourceField).map((value) => {
               const current = resolveIconId(value, element.rules, element.fallbackIconId);
@@ -130,9 +131,11 @@ export function IconRulesPanel() {
           </ul>
 
           {rows.length === 0 && <Hint>Upload a guest list to see that column's values here.</Hint>}
+          </SubGroup>
         </>
       )}
 
+      <SubGroup title="Your icons" open={false}>
       <div className={styles.uploadRow}>
         <button type="button" className={styles.button} onClick={() => input.current?.click()}>
           Upload an SVG icon
@@ -168,7 +171,8 @@ export function IconRulesPanel() {
       )}
 
       {error && <p className={styles.error}>{error}</p>}
-    </Panel>
+      </SubGroup>
+    </>
   );
 }
 

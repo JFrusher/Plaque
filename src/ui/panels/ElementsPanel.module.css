@@ -130,3 +130,21 @@
   border-color: var(--accent);
   font-weight: 600;
 }
+
+/* Copies the front onto the back in one press — the common case for a flat
+   place card that has to be read from both sides of the table. */
+.mirror {
+  padding: 4px var(--sp-2);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mirror:hover {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}

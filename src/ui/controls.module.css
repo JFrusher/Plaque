@@ -1,14 +1,23 @@
+/* Level 2 - a module view inside a domain. Sentence case, medium weight, a
+   whole-row hover target, and an accent rail when the selection is about it. */
 .panel {
-  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.panel + .panel {
+  margin-top: 1px;
 }
 
 .summary {
-  padding: var(--sp-3) var(--sp-4);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-2);
+  border-left: 2px solid transparent;
+  border-radius: var(--radius);
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--grey-7);
   cursor: pointer;
   list-style: none;
 }
@@ -17,22 +26,109 @@
   display: none;
 }
 
+.summary:hover {
+  background: var(--grey-2);
+  color: var(--text);
+}
+
 .summary::before {
   content: "▸";
   display: inline-block;
-  width: 1em;
+  width: 0.9em;
+  flex: none;
   color: var(--grey-5);
+  font-size: var(--text-xs);
+  transition: transform 120ms ease;
 }
 
 .panel[open] > .summary::before {
-  content: "▾";
+  transform: rotate(90deg);
+}
+
+.title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Counters sit hard right so the column of numbers is scannable on its own. */
+.badge {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--grey-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+
+.summary:hover .badge {
+  background: var(--grey-3);
+}
+
+.panelActive > .summary {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--grey-8);
+  font-weight: 600;
+}
+
+.panelActive > .summary .badge {
+  background: var(--surface);
+  color: var(--accent);
 }
 
 .body {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  padding: 0 var(--sp-4) var(--sp-4);
+  padding: var(--sp-2) var(--sp-3) var(--sp-3) var(--sp-3);
+}
+
+/* Level 3 - a group of fields inside a panel, held together by a guide line. */
+.sub {
+  margin-left: 2px;
+}
+
+.subSummary {
+  padding: var(--sp-1) 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--grey-5);
+  cursor: pointer;
+  list-style: none;
+}
+
+.subSummary::-webkit-details-marker {
+  display: none;
+}
+
+.subSummary:hover {
+  color: var(--grey-7);
+}
+
+.subSummary::before {
+  content: "▸";
+  display: inline-block;
+  width: 0.9em;
+  transition: transform 120ms ease;
+}
+
+.sub[open] > .subSummary::before {
+  transform: rotate(90deg);
+}
+
+.subBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: var(--sp-1) 0 var(--sp-2);
+  padding: 2px 0 var(--sp-1) var(--sp-3);
+  border-left: 1px solid var(--border);
 }
 
 .row {

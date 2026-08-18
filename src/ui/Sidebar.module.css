@@ -1,10 +1,127 @@
 .sidebar {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   width: var(--sidebar-w);
   height: 100%;
-  overflow-y: auto;
+  /* Without this the 1fr track takes its minimum from the panels' own height,
+     the aside grows past the viewport, and the footer walks off the bottom. */
+  min-height: 0;
   background: var(--surface);
   border-right: 1px solid var(--border);
+}
+
+/* Only this scrolls, so the utility row below stays put on a long panel. */
+.scroll {
+  min-height: 0;
+  padding: var(--sp-2);
+  overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--grey-4) transparent;
+}
+
+.scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scroll::-webkit-scrollbar-thumb {
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  background: var(--grey-4);
+}
+
+.scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--grey-5);
+}
+
+.scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Level 1 — a domain of the job. Separated by air and a rule rather than by
+   being one more identical row in a stack of twenty. */
+.section + .section {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+
+.sectionSummary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  border-radius: var(--radius);
+  color: var(--grey-8);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  list-style: none;
+}
+
+.sectionSummary::-webkit-details-marker {
+  display: none;
+}
+
+.sectionSummary:hover {
+  background: var(--grey-2);
+}
+
+.sectionIcon {
+  display: flex;
+  flex: none;
+  color: var(--grey-6);
+}
+
+.sectionActive > .sectionSummary .sectionIcon {
+  color: var(--accent);
+}
+
+.sectionTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sectionChevron {
+  margin-left: auto;
+  color: var(--grey-5);
+  font-size: var(--text-xs);
+  transition: transform 120ms ease;
+}
+
+.section[open] > .sectionSummary .sectionChevron {
+  transform: rotate(90deg);
+}
+
+/* Level 2 sits half a step in from its domain heading. */
+.sectionBody {
+  padding: var(--sp-1) 0 var(--sp-2) var(--sp-2);
+}
+
+.footer {
+  display: flex;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.footerButton {
+  flex: 1;
+  padding: 4px var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.footerButton:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
 }
